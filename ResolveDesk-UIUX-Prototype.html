@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResolveDesk — UI/UX System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F5FA;
+    --surface:#FFFFFF;
+    --sidebar:#12172B;
+    --sidebar-soft:#1C2340;
+    --sidebar-text:#98A0BE;
+    --ink:#12172B;
+    --muted:#666F8A;
+    --border:#E5E7F0;
+    --primary:#2A4FD1;
+    --primary-dark:#1E3AA0;
+    --primary-soft:#E9EDFC;
+    --success:#1F9D6C;
+    --success-soft:#E3F6ED;
+    --warning:#DE8F1F;
+    --warning-soft:#FBF0DD;
+    --danger:#DB4C4C;
+    --danger-soft:#FBE7E7;
+    --purple:#7C5CD6;
+    --purple-soft:#EFEAFB;
+    --gray:#8992A6;
+    --gray-soft:#EEF0F5;
+    --radius:12px;
+    --radius-sm:8px;
+    --font-display:'Space Grotesk',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'IBM Plex Mono',monospace;
+    --shadow:0 1px 2px rgba(18,23,43,.04), 0 8px 24px -12px rgba(18,23,43,.10);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--font-body);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;}
+  h1,h2,h3,.display{font-family:var(--font-display);letter-spacing:-.01em;}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+  input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink);}
+  a{color:inherit;text-decoration:none;}
+  ::selection{background:var(--primary-soft);}
+  .mono{font-family:var(--font-mono);}
+
+  /* ---------- LOGIN ---------- */
+  #login-screen{
+    min-height:100vh;display:grid;grid-template-columns:1fr 1fr;
+  }
+  .login-brand{
+    background:var(--sidebar);color:#fff;padding:56px;display:flex;flex-direction:column;justify-content:space-between;
+    background-image:radial-gradient(circle at 15% 20%, rgba(42,79,209,.35), transparent 45%),radial-gradient(circle at 85% 80%, rgba(124,92,214,.28), transparent 45%);
+  }
+  .brand-mark{display:flex;align-items:center;gap:10px;}
+  .brand-mark .dot{width:10px;height:10px;border-radius:3px;background:var(--primary);box-shadow:0 0 0 4px rgba(42,79,209,.25);}
+  .brand-mark span{font-family:var(--font-display);font-weight:700;font-size:19px;letter-spacing:-.02em;}
+  .login-brand h1{font-size:38px;line-height:1.15;max-width:420px;margin-top:60px;}
+  .login-brand p{color:var(--sidebar-text);margin-top:16px;max-width:380px;line-height:1.6;font-size:15px;}
+  .thread-preview{margin-top:48px;display:flex;flex-direction:column;gap:0;}
+  .tp-row{display:flex;gap:14px;align-items:flex-start;position:relative;padding-bottom:22px;}
+  .tp-row:last-child{padding-bottom:0;}
+  .tp-row::before{content:'';position:absolute;left:5px;top:16px;bottom:-6px;width:1px;background:rgba(255,255,255,.14);}
+  .tp-row:last-child::before{display:none;}
+  .tp-dot{width:11px;height:11px;border-radius:50%;background:var(--success);margin-top:4px;flex-shrink:0;box-shadow:0 0 0 4px rgba(31,157,108,.18);}
+  .tp-row.pending .tp-dot{background:var(--gray);box-shadow:0 0 0 4px rgba(137,146,166,.18);}
+  .tp-text b{display:block;font-size:13.5px;font-weight:600;}
+  .tp-text span{font-size:12px;color:var(--sidebar-text);}
+  .login-form-wrap{display:flex;align-items:center;justify-content:center;padding:40px;}
+  .login-form{width:100%;max-width:360px;}
+  .login-form h2{font-size:24px;margin-bottom:6px;}
+  .login-form>p{color:var(--muted);font-size:14px;margin-bottom:28px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em;}
+  .field input,.field select,.field textarea{
+    width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);
+    transition:border-color .15s;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft);}
+  .row-between{display:flex;align-items:center;justify-content:space-between;font-size:13px;margin-bottom:22px;}
+  .row-between label{display:flex;align-items:center;gap:7px;color:var(--muted);}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;border-radius:var(--radius-sm);font-size:14px;font-weight:600;transition:.15s;}
+  .btn-primary{background:var(--primary);color:#fff;width:100%;}
+  .btn-primary:hover{background:var(--primary-dark);}
+  .btn-outline{border:1.5px solid var(--border);background:var(--surface);}
+  .btn-outline:hover{border-color:var(--primary);color:var(--primary);}
+  .btn-ghost{color:var(--muted);}
+  .btn-ghost:hover{color:var(--ink);}
+  .btn-danger-outline{border:1.5px solid var(--danger-soft);color:var(--danger);background:var(--danger-soft);}
+  .btn-sm{padding:7px 12px;font-size:12.5px;border-radius:7px;}
+  .demo-roles{margin-top:26px;padding-top:22px;border-top:1px dashed var(--border);}
+  .demo-roles p{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600;margin-bottom:10px;}
+  .role-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .role-pick{border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;text-align:left;font-size:13px;font-weight:600;}
+  .role-pick:hover{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-dark);}
+  .role-pick span{display:block;font-weight:400;color:var(--muted);font-size:11px;margin-top:2px;}
+
+  /* ---------- APP SHELL ---------- */
+  #app-shell{display:none;min-height:100vh;}
+  .shell{display:grid;grid-template-columns:240px 1fr;min-height:100vh;}
+  .sidebar{background:var(--sidebar);color:#fff;padding:20px 14px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
+  .sidebar .brand-mark{padding:6px 8px 22px;}
+  .side-section{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:#5C6488;font-weight:600;padding:14px 10px 8px;}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:9px;color:var(--sidebar-text);font-size:13.5px;font-weight:500;margin-bottom:2px;position:relative;}
+  .nav-item svg{flex-shrink:0;opacity:.85;}
+  .nav-item:hover{background:var(--sidebar-soft);color:#fff;}
+  .nav-item.active{background:var(--sidebar-soft);color:#fff;}
+  .nav-item.active::before{content:'';position:absolute;left:-14px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--primary);}
+  .sidebar-foot{margin-top:auto;border-top:1px solid rgba(255,255,255,.08);padding-top:14px;}
+  .user-chip{display:flex;align-items:center;gap:10px;padding:8px;border-radius:9px;}
+  .user-chip:hover{background:var(--sidebar-soft);}
+  .avatar{width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;flex-shrink:0;font-family:var(--font-display);}
+  .user-chip .who{font-size:12.5px;font-weight:600;color:#fff;line-height:1.3;}
+  .user-chip .who span{display:block;font-weight:400;color:var(--sidebar-text);font-size:11px;}
+
+  .main{display:flex;flex-direction:column;min-width:0;}
+  .topbar{height:64px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 22px;position:sticky;top:0;z-index:5;}
+  .search-box{display:flex;align-items:center;gap:9px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 12px;width:320px;color:var(--muted);}
+  .search-box input{background:none;border:none;width:100%;font-size:13.5px;}
+  .search-box input:focus{outline:none;}
+  .top-actions{display:flex;align-items:center;gap:14px;}
+  .icon-btn{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--muted);position:relative;}
+  .icon-btn:hover{background:var(--bg);color:var(--ink);}
+  .badge-dot{position:absolute;top:6px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--danger);border:1.5px solid var(--surface);}
+  .content{padding:26px 28px 100px;flex:1;}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
+  .page-head h1{font-size:22px;}
+  .page-head p{color:var(--muted);font-size:13.5px;margin-top:4px;}
+  .page-actions{display:flex;gap:10px;}
+
+  /* ---------- COMPONENTS ---------- */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
+  .cards-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px;}
+  .stat-card{padding:18px;}
+  .stat-card .top{display:flex;justify-content:space-between;align-items:flex-start;}
+  .stat-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;}
+  .stat-card .num{font-family:var(--font-display);font-size:26px;font-weight:700;margin-top:14px;}
+  .stat-card .lbl{font-size:12.5px;color:var(--muted);margin-top:2px;}
+  .trend{font-size:11.5px;font-weight:600;padding:3px 7px;border-radius:6px;}
+  .trend.up{color:var(--success);background:var(--success-soft);}
+  .trend.down{color:var(--danger);background:var(--danger-soft);}
+
+  .grid-2{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:22px;align-items:start;}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:22px;}
+  .panel{padding:20px;}
+  .panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .panel-head h3{font-size:15px;}
+  .panel-head a{font-size:12.5px;color:var(--primary);font-weight:600;}
+
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap;}
+  .badge::before{content:'';width:6px;height:6px;border-radius:50%;}
+  .badge.pending{background:var(--warning-soft);color:#8A5A0C;}.badge.pending::before{background:var(--warning);}
+  .badge.assigned{background:var(--primary-soft);color:var(--primary-dark);}.badge.assigned::before{background:var(--primary);}
+  .badge.progress{background:var(--purple-soft);color:#5B3FA8;}.badge.progress::before{background:var(--purple);}
+  .badge.resolved{background:var(--success-soft);color:#127A50;}.badge.resolved::before{background:var(--success);}
+  .badge.closed{background:var(--gray-soft);color:#5B6478;}.badge.closed::before{background:var(--gray);}
+  .badge.rejected{background:var(--danger-soft);color:#A93131;}.badge.rejected::before{background:var(--danger);}
+
+  .prio{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+  .prio::before{content:'';width:8px;height:8px;border-radius:2px;}
+  .prio.critical{color:var(--danger);}.prio.critical::before{background:var(--danger);}
+  .prio.high{color:var(--warning);}.prio.high::before{background:var(--warning);}
+  .prio.medium{color:var(--primary);}.prio.medium::before{background:var(--primary);}
+  .prio.low{color:var(--gray);}.prio.low::before{background:var(--gray);}
+
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;padding:0 14px 10px;border-bottom:1px solid var(--border);}
+  td{padding:13px 14px;font-size:13.5px;border-bottom:1px solid var(--border);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:var(--bg);}
+  .id-cell{font-family:var(--font-mono);font-size:12.5px;color:var(--muted);}
+  .table-scroll{overflow-x:auto;}
+  .table-toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+  .chip-select{border:1.5px solid var(--border);border-radius:8px;padding:8px 11px;font-size:13px;background:var(--surface);display:flex;align-items:center;gap:6px;color:var(--muted);}
+  .pagination{display:flex;justify-content:space-between;align-items:center;padding-top:16px;font-size:12.5px;color:var(--muted);}
+  .page-btns{display:flex;gap:6px;}
+  .page-btns button{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);font-size:12.5px;}
+  .page-btns button.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+
+  /* bar chart */
+  .barchart{display:flex;align-items:flex-end;gap:10px;height:150px;padding-top:10px;}
+  .barchart .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end;}
+  .barchart .bar{width:100%;max-width:26px;border-radius:5px 5px 2px 2px;background:var(--primary);animation:grow .6s ease-out;transform-origin:bottom;}
+  .barchart .bar-col span{font-size:10.5px;color:var(--muted);}
+  @keyframes grow{from{transform:scaleY(0);}to{transform:scaleY(1);}}
+
+  /* donut */
+  .donut-wrap{display:flex;align-items:center;gap:20px;}
+  .donut{width:120px;height:120px;border-radius:50%;flex-shrink:0;}
+  .donut-legend{display:flex;flex-direction:column;gap:9px;}
+  .legend-row{display:flex;align-items:center;gap:8px;font-size:12.5px;}
+  .legend-dot{width:9px;height:9px;border-radius:3px;}
+  .legend-row b{margin-left:auto;font-family:var(--font-mono);font-size:12px;}
+
+  /* timeline (signature element) */
+  .thread{padding:4px 4px 4px 6px;}
+  .thread-item{display:flex;gap:14px;position:relative;padding-bottom:26px;}
+  .thread-item:last-child{padding-bottom:0;}
+  .thread-line{position:absolute;left:8px;top:20px;bottom:-6px;width:2px;background:var(--border);}
+  .thread-item.done .thread-line{background:var(--success);}
+  .thread-item:last-child .thread-line{display:none;}
+  .thread-node{width:18px;height:18px;border-radius:50%;border:2.5px solid var(--gray);background:var(--surface);flex-shrink:0;z-index:1;display:flex;align-items:center;justify-content:center;}
+  .thread-item.done .thread-node{border-color:var(--success);background:var(--success);}
+  .thread-item.current .thread-node{border-color:var(--primary);background:var(--primary);box-shadow:0 0 0 5px var(--primary-soft);animation:pulse 1.8s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 4px var(--primary-soft);}50%{box-shadow:0 0 0 8px rgba(42,79,209,.08);}100%{box-shadow:0 0 0 4px var(--primary-soft);}}
+  .thread-node svg{width:10px;height:10px;}
+  .thread-body b{display:block;font-size:13.5px;font-weight:600;}
+  .thread-body span{font-size:12px;color:var(--muted);font-family:var(--font-mono);}
+  .thread-item.pending-step .thread-body b{color:var(--muted);font-weight:500;}
+
+  .meta-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px 20px;}
+  .meta-grid .mi span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;}
+  .meta-grid .mi b{font-size:13.5px;font-weight:600;}
+
+  .img-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  .img-ph{aspect-ratio:1;border-radius:9px;background:linear-gradient(135deg,var(--gray-soft),var(--border));display:flex;align-items:center;justify-content:center;color:var(--gray);}
+
+  .comment{display:flex;gap:11px;margin-bottom:16px;}
+  .comment:last-child{margin-bottom:0;}
+  .comment .bubble{background:var(--bg);border-radius:11px;padding:10px 13px;font-size:13px;line-height:1.5;flex:1;}
+  .comment .bubble b{font-size:12.5px;display:block;margin-bottom:3px;}
+  .comment .bubble time{font-size:10.5px;color:var(--muted);font-family:var(--font-mono);}
+
+  .dropzone{border:1.5px dashed var(--border);border-radius:var(--radius);padding:26px;text-align:center;color:var(--muted);font-size:13px;}
+  .dropzone svg{margin-bottom:8px;color:var(--gray);}
+  .dropzone b{color:var(--primary);}
+  .char-count{text-align:right;font-size:11.5px;color:var(--muted);margin-top:5px;}
+  .priority-picker{display:flex;gap:8px;}
+  .pp-opt{flex:1;border:1.5px solid var(--border);border-radius:9px;padding:9px;text-align:center;font-size:12px;font-weight:600;}
+  .pp-opt.sel{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-dark);}
+
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .form-grid .full{grid-column:1/-1;}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:10px;font-size:13.5px;display:flex;align-items:center;gap:10px;box-shadow:0 12px 30px rgba(0,0,0,.25);z-index:50;opacity:0;pointer-events:none;transition:.25s;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+  .toast .dot{width:8px;height:8px;border-radius:50%;background:var(--success);}
+
+  .empty-state{padding:50px 20px;text-align:center;color:var(--muted);}
+  .empty-state svg{margin-bottom:12px;color:var(--gray);}
+  .empty-state b{display:block;color:var(--ink);font-size:14px;margin-bottom:4px;}
+
+  .notif-item{display:flex;gap:12px;padding:14px 4px;border-bottom:1px solid var(--border);position:relative;}
+  .notif-item:last-child{border-bottom:none;}
+  .notif-ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .notif-item b{font-size:13.5px;}
+  .notif-item p{font-size:12.5px;color:var(--muted);margin-top:2px;}
+  .notif-item time{font-size:11px;color:var(--gray);font-family:var(--font-mono);}
+  .notif-item.unread::after{content:'';position:absolute;left:-4px;top:22px;width:6px;height:6px;border-radius:50%;background:var(--primary);}
+
+  .tech-row{display:flex;align-items:center;gap:12px;padding:13px 4px;border-bottom:1px solid var(--border);}
+  .tech-row:last-child{border-bottom:none;}
+  .tech-row .info{flex:1;}
+  .tech-row .info b{font-size:13.5px;display:block;}
+  .tech-row .info span{font-size:11.5px;color:var(--muted);}
+  .workload-bar{width:90px;height:6px;border-radius:4px;background:var(--gray-soft);overflow:hidden;}
+  .workload-bar i{display:block;height:100%;background:var(--primary);border-radius:4px;}
+  .avail{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;}
+  .avail.free{background:var(--success-soft);color:#127A50;}
+  .avail.busy{background:var(--warning-soft);color:#8A5A0C;}
+
+  .switch{width:38px;height:22px;border-radius:20px;background:var(--gray-soft);position:relative;flex-shrink:0;}
+  .switch.on{background:var(--primary);}
+  .switch i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+  .switch.on i{left:18px;}
+  .settings-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);}
+  .settings-row:last-child{border-bottom:none;}
+  .settings-row b{font-size:13.5px;display:block;}
+  .settings-row span{font-size:12px;color:var(--muted);}
+
+  /* mobile bottom nav */
+  .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);height:62px;align-items:center;justify-content:space-around;z-index:20;padding-bottom:env(safe-area-inset-bottom);}
+  .mobile-nav a{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:9.5px;font-weight:600;}
+  .mobile-nav a.active{color:var(--primary);}
+  .fab{position:fixed;bottom:78px;right:20px;width:52px;height:52px;border-radius:50%;background:var(--primary);color:#fff;display:none;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(42,79,209,.4);z-index:21;}
+  .hamburger{display:none;}
+
+  @media (max-width:980px){
+    .cards-row{grid-template-columns:repeat(2,1fr);}
+    .grid-2,.grid-3{grid-template-columns:1fr;}
+    .form-grid{grid-template-columns:1fr;}
+    #login-screen{grid-template-columns:1fr;}
+    .login-brand{display:none;}
+  }
+  @media (max-width:760px){
+    .shell{grid-template-columns:1fr;}
+    .sidebar{display:none;}
+    .hamburger{display:flex;}
+    .search-box{width:auto;flex:1;margin-right:10px;}
+    .content{padding:18px 16px 90px;}
+    .mobile-nav{display:flex;}
+    .fab{display:flex;}
+    table thead{display:none;}
+    table, tbody, tr, td{display:block;width:100%;}
+    .table-scroll table{border:none;}
+    tbody tr{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;padding:6px 4px;}
+    td{border-bottom:1px dashed var(--border);display:flex;justify-content:space-between;gap:10px;align-items:center;}
+    td:last-child{border-bottom:none;}
+    td::before{content:attr(data-label);font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="login-screen">
+  <div class="login-brand">
+    <div class="brand-mark"><span class="dot"></span><span>ResolveDesk</span></div>
+    <div>
+      <h1>Campus issues, tracked from report to resolved.</h1>
+      <p>One place for students, technicians, department heads and admins to raise, route and close out complaints — without a single email thread.</p>
+      <div class="thread-preview">
+        <div class="tp-row"><span class="tp-dot"></span><div class="tp-text"><b>Complaint submitted</b><span>Hostel Block C · Electrical</span></div></div>
+        <div class="tp-row"><span class="tp-dot"></span><div class="tp-text"><b>Technician assigned</b><span>Auto-routed in 4 min</span></div></div>
+        <div class="tp-row pending"><span class="tp-dot"></span><div class="tp-text"><b>In progress</b><span>ETA today, 5:00 PM</span></div></div>
+      </div>
+    </div>
+    <div></div>
+  </div>
+  <div class="login-form-wrap">
+    <div class="login-form">
+      <h2>Welcome back</h2>
+      <p>Sign in to your ResolveDesk account.</p>
+      <div class="field"><label>College Email</label><input type="email" placeholder="you@kct.ac.in"></div>
+      <div class="field"><label>Password</label><input type="password" placeholder="••••••••"></div>
+      <div class="row-between">
+        <label><input type="checkbox"> Remember me</label>
+        <a href="#" style="color:var(--primary);font-weight:600;">Forgot password?</a>
+      </div>
+      <button class="btn btn-primary" onclick="enterApp('student')">Log in</button>
+      <div class="demo-roles">
+        <p>Preview as (demo)</p>
+        <div class="role-grid">
+          <button class="role-pick" onclick="enterApp('student')">Student<span>Raise & track</span></button>
+          <button class="role-pick" onclick="enterApp('technician')">Technician<span>Resolve tasks</span></button>
+          <button class="role-pick" onclick="enterApp('head')">Dept. Head<span>Assign & review</span></button>
+          <button class="role-pick" onclick="enterApp('admin')">Admin<span>Full control</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP SHELL ================= -->
+<div id="app-shell">
+  <div class="shell">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="hamburger icon-btn" onclick="toggleSidebar()" style="display:flex;">${''}</button>
+          <div class="search-box">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input placeholder="Search complaints, IDs, students...">
+          </div>
+        </div>
+        <div class="top-actions">
+          <button class="icon-btn" onclick="showScreen(currentRole+'-notifications')">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="badge-dot"></span>
+          </button>
+          <button class="icon-btn" onclick="logout()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
+          <div class="avatar" id="topAvatar">KV</div>
+        </div>
+      </header>
+      <div class="content" id="content"></div>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobileNav"></nav>
+  <button class="fab" id="fabBtn" onclick="showScreen('student-raise')">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+</div>
+
+<div class="toast" id="toast"><span class="dot"></span><span id="toastMsg">Saved</span></div>
+
+<script>
+/* ---------------- ICONS ---------------- */
+const ICONS = {
+  home:'<circle cx="12" cy="12" r="0"/><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+  plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  list:'<line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.3" fill="currentColor" stroke="none"/>',
+  bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+  gear:'<circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z"/>',
+  check:'<polyline points="20 6 9 17 4 12"/>',
+  userplus:'<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><line x1="19" y1="9" x2="19" y2="15"/><line x1="16" y1="12" x2="22" y2="12"/>',
+  chart:'<line x1="5" y1="20" x2="5" y2="11"/><line x1="12" y1="20" x2="12" y2="5"/><line x1="19" y1="20" x2="19" y2="14"/>',
+  users:'<circle cx="9" cy="8" r="3.3"/><path d="M2.5 20c0-3.5 2.9-6 6.5-6s6.5 2.5 6.5 6"/><path d="M16 4.2a3.3 3.3 0 0 1 0 6.4"/><path d="M21.5 20c0-2.8-1.9-5-4.5-5.8"/>',
+  building:'<rect x="4" y="3" width="16" height="18" rx="1"/><line x1="9" y1="7" x2="9" y2="7.01"/><line x1="15" y1="7" x2="15" y2="7.01"/><line x1="9" y1="11" x2="9" y2="11.01"/><line x1="15" y1="11" x2="15" y2="11.01"/><line x1="9" y1="15" x2="9" y2="15.01"/><line x1="15" y1="15" x2="15" y2="15.01"/>',
+  logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/>',
+  wrench:'<path d="M14.7 6.3a4 4 0 1 0-5.66 5.66L4 17l3 3 5.04-5.04a4 4 0 0 0 5.66-5.66l-2.83 2.83-2.12-2.12z"/>',
+  reports:'<path d="M14 3v5h5"/><path d="M6 3h8l5 5v13H6z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>',
+  upload:'<path d="M12 16V4"/><polyline points="6 9 12 4 18 9"/><path d="M4 20h16"/>',
+  filter:'<polygon points="4 4 20 4 14 12.5 14 19 10 21 10 12.5"/>',
+  edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  down:'<polyline points="6 9 12 15 18 9"/>',
+  empty:'<rect x="3" y="8" width="18" height="12" rx="2"/><path d="M3 8l3-5h12l3 5"/><line x1="9" y1="12" x2="15" y2="12"/>',
+};
+function ic(name,size=17){ return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||''}</svg>`; }
+
+/* ---------------- ROLE CONFIG ---------------- */
+const ROLES = {
+  student:{ label:'Student', initials:'AR', name:'Aarav R.', sub:'CSE · III Year',
+    nav:[
+      {id:'student-dashboard',label:'Dashboard',icon:'home'},
+      {id:'student-raise',label:'Raise Complaint',icon:'plus'},
+      {id:'student-history',label:'My Complaints',icon:'list'},
+      {id:'student-notifications',label:'Notifications',icon:'bell'},
+      {id:'student-settings',label:'Settings',icon:'gear'},
+    ]},
+  technician:{ label:'Technician', initials:'MS', name:'Manoj S.', sub:'Electrical Dept.',
+    nav:[
+      {id:'technician-dashboard',label:'Dashboard',icon:'home'},
+      {id:'technician-work',label:'Assigned Complaints',icon:'wrench'},
+      {id:'technician-completed',label:'Completed',icon:'check'},
+      {id:'technician-notifications',label:'Notifications',icon:'bell'},
+    ]},
+  head:{ label:'Department Head', initials:'PK', name:'Priya K.', sub:'Head · Electrical',
+    nav:[
+      {id:'head-dashboard',label:'Dashboard',icon:'home'},
+      {id:'head-complaints',label:'Complaints',icon:'list'},
+      {id:'head-assign',label:'Assign',icon:'userplus'},
+      {id:'head-reports',label:'Reports',icon:'reports'},
+      {id:'head-staff',label:'Staff',icon:'users'},
+    ]},
+  admin:{ label:'Admin', initials:'KV', name:'Kaveyan', sub:'System Admin',
+    nav:[
+      {id:'admin-dashboard',label:'Dashboard',icon:'home'},
+      {id:'admin-complaints',label:'Complaints',icon:'list'},
+      {id:'admin-departments',label:'Departments',icon:'building'},
+      {id:'admin-users',label:'Users',icon:'users'},
+      {id:'admin-reports',label:'Reports',icon:'reports'},
+    ]},
+};
+let currentRole='student', currentScreen='student-dashboard';
+
+/* ---------------- SHARED COMPONENTS ---------------- */
+function badge(status){
+  const map={Pending:'pending',Assigned:'assigned','In Progress':'progress',Resolved:'resolved',Closed:'closed',Rejected:'rejected'};
+  return `<span class="badge ${map[status]}">${status}</span>`;
+}
+function prio(level){ return `<span class="prio ${level.toLowerCase()}">${level}</span>`; }
+function statCard(label,num,iconName,color,trend,up){
+  return `<div class="card stat-card">
+    <div class="top">
+      <div class="stat-icon" style="background:${color}22;color:${color}">${ic(iconName,17)}</div>
+      ${trend?`<span class="trend ${up?'up':'down'}">${up?'▲':'▼'} ${trend}</span>`:''}
+    </div>
+    <div class="num">${num}</div>
+    <div class="lbl">${label}</div>
+  </div>`;
+}
+function barChart(data){
+  const max=Math.max(...data.map(d=>d.v));
+  return `<div class="barchart">${data.map(d=>`
+    <div class="bar-col">
+      <div class="bar" style="height:${Math.max(6,(d.v/max)*120)}px;background:${d.c||'var(--primary)'}"></div>
+      <span>${d.l}</span>
+    </div>`).join('')}</div>`;
+}
+function donut(data){
+  let acc=0; const stops=data.map(d=>{ const start=acc; acc+=d.v; return `${d.c} ${start}% ${acc}%`; }).join(', ');
+  return `<div class="donut-wrap">
+    <div class="donut" style="background:conic-gradient(${stops})"></div>
+    <div class="donut-legend">${data.map(d=>`<div class="legend-row"><span class="legend-dot" style="background:${d.c}"></span>${d.l}<b>${d.v}%</b></div>`).join('')}</div>
+  </div>`;
+}
+function table(cols,rows){
+  return `<div class="table-scroll"><table>
+    <thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r=>`<tr>${r.map((cell,i)=>`<td data-label="${cols[i]}">${cell}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table></div>`;
+}
+function thread(steps,currentIdx){
+  return `<div class="thread">${steps.map((s,i)=>{
+    const cls = i<currentIdx?'done':(i===currentIdx?'current':'pending-step');
+    return `<div class="thread-item ${cls}"><div class="thread-line"></div>
+      <div class="thread-node">${i<currentIdx?ic('check',10):''}</div>
+      <div class="thread-body"><b>${s.t}</b><span>${s.d}</span></div></div>`;
+  }).join('')}</div>`;
+}
+function toast(msg){
+  const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg;
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+/* ---------------- SCREEN RENDERERS ---------------- */
+const S = {};
+
+S['student-dashboard']=()=>`
+  <div class="page-head"><div><h1>Welcome back, Aarav</h1><p>Here's what's happening with your complaints.</p></div>
+    <div class="page-actions"><button class="btn btn-outline btn-sm" onclick="showScreen('student-history')">Track Complaint</button><button class="btn btn-primary btn-sm" onclick="showScreen('student-raise')">${ic('plus',14)} Raise Complaint</button></div></div>
+  <div class="cards-row">
+    ${statCard('Total Complaints','18','list','#2A4FD1')}
+    ${statCard('Pending','3','clock','#DE8F1F')}
+    ${statCard('In Progress','2','wrench','#7C5CD6')}
+    ${statCard('Resolved','11','check','#1F9D6C')}
+    ${statCard('Closed','2','building','#8992A6')}
+  </div>
+  <div class="grid-2">
+    <div class="card panel"><div class="panel-head"><h3>Complaints this year</h3><a href="#">Monthly</a></div>
+      ${barChart([{l:'Feb',v:1},{l:'Mar',v:3},{l:'Apr',v:2},{l:'May',v:4},{l:'Jun',v:2},{l:'Jul',v:6,c:'var(--primary-dark)'}])}
+    </div>
+    <div class="card panel"><div class="panel-head"><h3>Notifications</h3><a onclick="showScreen('student-notifications')" style="cursor:pointer">View all</a></div>
+      ${notifList(3)}
+    </div>
+  </div>
+  <div class="card panel"><div class="panel-head"><h3>Recent complaints</h3><a onclick="showScreen('student-history')" style="cursor:pointer">View all</a></div>
+    ${table(['ID','Title','Department','Status','Priority','Date'],[
+      ['<span class="id-cell">#CMP-1042</span>','Wi-Fi down in Block C','IT',badge('In Progress'),prio('High'),'Jul 24'],
+      ['<span class="id-cell">#CMP-1039</span>','Leaking tap, washroom 2F','Facility',badge('Assigned'),prio('Medium'),'Jul 22'],
+      ['<span class="id-cell">#CMP-1031</span>','Projector not working, LH4','Electrical',badge('Resolved'),prio('Low'),'Jul 18'],
+    ])}
+  </div>`;
+
+S['student-raise']=()=>`
+  <div class="page-head"><div><h1>Raise a Complaint</h1><p>Fill in the details below — you'll be able to track progress right after submitting.</p></div></div>
+  <div class="grid-2">
+    <div class="card panel">
+      <div class="form-grid">
+        <div class="field"><label>Department</label><select><option>Electrical</option><option>Plumbing</option><option>IT</option><option>Facility</option><option>Other</option></select></div>
+        <div class="field"><label>Category</label><select><option>Repair</option><option>Installation</option><option>Maintenance</option><option>Complaint</option></select></div>
+        <div class="field full"><label>Title</label><input placeholder="e.g. AC not cooling in Room 214"></div>
+        <div class="field full">
+          <label>Description</label>
+          <textarea rows="4" placeholder="Describe the issue in detail..." oninput="document.getElementById('cc').textContent=500-this.value.length"></textarea>
+          <div class="char-count"><span id="cc">500</span> characters left</div>
+        </div>
+        <div class="field"><label>Location</label><input placeholder="Block, Floor, Room no."></div>
+        <div class="field"><label>Priority</label>
+          <div class="priority-picker">
+            <button type="button" class="pp-opt" onclick="pickPrio(this)">Low</button>
+            <button type="button" class="pp-opt sel" onclick="pickPrio(this)">Medium</button>
+            <button type="button" class="pp-opt" onclick="pickPrio(this)">High</button>
+            <button type="button" class="pp-opt" onclick="pickPrio(this)">Critical</button>
+          </div>
+        </div>
+        <div class="field full"><label>Upload Images</label>
+          <div class="dropzone">${ic('upload',22)}<div><b>Click to upload</b> or drag and drop</div><div style="font-size:11.5px;margin-top:2px;">PNG, JPG up to 10MB</div></div>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:auto;margin-top:18px;padding:11px 28px;" onclick="toast('Complaint submitted — #CMP-1043')">Submit Complaint</button>
+    </div>
+    <div class="card panel">
+      <div class="panel-head"><h3>Tips for a faster fix</h3></div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.9;">
+        • Be specific about the exact location.<br>
+        • Attach a photo — routing is 2x faster with one.<br>
+        • Critical priority is reserved for safety issues.<br>
+        • You'll get a notification the moment a technician is assigned.
+      </div>
+    </div>
+  </div>`;
+
+S['student-history']=S['student-detail-entry']=()=>`
+  <div class="page-head"><div><h1>My Complaints</h1><p>18 complaints total</p></div></div>
+  <div class="card panel">
+    <div class="table-toolbar">
+      <div class="search-box" style="width:260px;"><span style="opacity:.5">${ic('list',14)}</span><input placeholder="Search by ID or title"></div>
+      <div class="chip-select">${ic('filter',13)} Status: All</div>
+      <div class="chip-select">${ic('filter',13)} Priority: All</div>
+    </div>
+    ${table(['ID','Title','Department','Status','Priority','Date'],[
+      ['<span class="id-cell">#CMP-1042</span>','<a onclick="showScreen(\'student-detail\')" style="cursor:pointer;color:var(--primary);font-weight:600">Wi-Fi down in Block C</a>','IT',badge('In Progress'),prio('High'),'Jul 24'],
+      ['<span class="id-cell">#CMP-1039</span>','Leaking tap, washroom 2F','Facility',badge('Assigned'),prio('Medium'),'Jul 22'],
+      ['<span class="id-cell">#CMP-1035</span>','Broken chair, CSE lab 3','Facility',badge('Pending'),prio('Low'),'Jul 20'],
+      ['<span class="id-cell">#CMP-1031</span>','Projector not working, LH4','Electrical',badge('Resolved'),prio('Low'),'Jul 18'],
+      ['<span class="id-cell">#CMP-1028</span>','Duplicate entry','Other',badge('Rejected'),prio('Low'),'Jul 15'],
+      ['<span class="id-cell">#CMP-1019</span>','Fan not working, hostel','Electrical',badge('Closed'),prio('Medium'),'Jul 9'],
+    ])}
+    <div class="pagination"><span>Showing 1–6 of 18</span><div class="page-btns"><button>‹</button><button class="active">1</button><button>2</button><button>3</button><button>›</button></div></div>
+  </div>`;
+
+S['student-detail']=()=>`
+  <div class="page-head">
+    <div><h1 style="display:flex;align-items:center;gap:10px;">Wi-Fi down in Block C <span class="id-cell mono" style="font-size:13px;">#CMP-1042</span></h1>
+    <p>${badge('In Progress')} &nbsp; ${prio('High')} &nbsp; Created Jul 24, 2026</p></div>
+    <div class="page-actions"><button class="btn btn-outline btn-sm">${ic('down',13)} Download PDF</button><button class="btn btn-outline btn-sm">${ic('edit',13)} Edit</button><button class="btn btn-danger-outline btn-sm">Cancel</button></div>
+  </div>
+  <div class="grid-2">
+    <div>
+      <div class="card panel" style="margin-bottom:16px;">
+        <div class="panel-head"><h3>Details</h3></div>
+        <div class="meta-grid">
+          <div class="mi"><span>Department</span><b>IT Services</b></div>
+          <div class="mi"><span>Assigned Staff</span><b>Ravi Kumar</b></div>
+          <div class="mi"><span>Created</span><b>Jul 24, 2026 · 10:12 AM</b></div>
+          <div class="mi"><span>Priority</span><b>${prio('High')}</b></div>
+        </div>
+        <div style="margin-top:16px;font-size:13.5px;color:var(--muted);line-height:1.6;">Wi-Fi has been completely down on the 2nd floor of Block C since this morning. Affecting 3 classrooms during lecture hours.</div>
+        <div style="margin-top:16px;"><div class="img-grid">
+          <div class="img-ph">${ic('empty',26)}</div><div class="img-ph">${ic('empty',26)}</div>
+        </div></div>
+      </div>
+      <div class="card panel">
+        <div class="panel-head"><h3>Comments & Activity</h3></div>
+        <div class="comment"><div class="avatar" style="width:30px;height:30px;font-size:11px;">RK</div>
+          <div class="bubble"><b>Ravi Kumar</b>Checked the router — looks like a hardware fault. Ordering a replacement, should be up by 5 PM.<br><time>Jul 24, 2:14 PM</time></div></div>
+        <div class="comment"><div class="avatar" style="width:30px;height:30px;font-size:11px;background:var(--purple);">AR</div>
+          <div class="bubble"><b>You</b>Thanks for the update, appreciate the quick response!<br><time>Jul 24, 2:40 PM</time></div></div>
+      </div>
+    </div>
+    <div class="card panel">
+      <div class="panel-head"><h3>Status Timeline</h3></div>
+      ${thread([
+        {t:'Complaint Submitted',d:'Jul 24, 10:12 AM'},
+        {t:'Department Assigned',d:'Jul 24, 10:16 AM — IT Services'},
+        {t:'Technician Assigned',d:'Jul 24, 11:02 AM — Ravi Kumar'},
+        {t:'In Progress',d:'Working on it — ETA 5:00 PM'},
+        {t:'Resolved',d:'Pending'},
+        {t:'Closed',d:'Pending'},
+      ],3)}
+    </div>
+  </div>`;
+
+function notifList(n){
+  const items=[
+    {ic:'wrench',c:'var(--primary)',t:'Technician assigned',d:'Ravi Kumar was assigned to #CMP-1042',time:'2h ago',unread:true},
+    {ic:'check',c:'var(--success)',t:'Complaint resolved',d:'#CMP-1031 · Projector, LH4',time:'1d ago',unread:true},
+    {ic:'bell',c:'var(--warning)',t:'Complaint escalated',d:'#CMP-1028 needs your input',time:'2d ago',unread:false},
+    {ic:'chart',c:'var(--gray)',t:'System maintenance',d:'ResolveDesk will be down 1–2 AM tonight',time:'3d ago',unread:false},
+  ].slice(0,n);
+  return items.map(i=>`<div class="notif-item ${i.unread?'unread':''}">
+    <div class="notif-ic" style="background:${i.c}1f;color:${i.c}">${ic(i.ic,16)}</div>
+    <div style="flex:1;"><b>${i.t}</b><p>${i.d}</p></div><time>${i.time}</time>
+  </div>`).join('');
+}
+S['student-notifications']=()=>`<div class="page-head"><div><h1>Notifications</h1><p>Stay on top of what's changing.</p></div><div class="page-actions"><button class="btn btn-outline btn-sm">Mark all read</button></div></div><div class="card panel">${notifList(4)}</div>`;
+S['technician-notifications']=S['student-notifications'];
+
+S['student-settings']=()=>`
+  <div class="page-head"><div><h1>Settings</h1><p>Manage your profile and preferences.</p></div></div>
+  <div class="grid-2">
+    <div class="card panel">
+      <div class="panel-head"><h3>Profile</h3></div>
+      <div class="form-grid">
+        <div class="field"><label>Full Name</label><input value="Aarav R."></div>
+        <div class="field"><label>Roll Number</label><input value="21CS0142"></div>
+        <div class="field full"><label>College Email</label><input value="aarav.r@kct.ac.in"></div>
+      </div>
+      <div class="panel-head" style="margin-top:22px;"><h3>Password</h3></div>
+      <div class="form-grid">
+        <div class="field full"><label>Current Password</label><input type="password"></div>
+        <div class="field"><label>New Password</label><input type="password"></div>
+        <div class="field"><label>Confirm Password</label><input type="password"></div>
+      </div>
+      <button class="btn btn-primary" style="width:auto;padding:10px 24px;" onclick="toast('Settings saved')">Save Changes</button>
+    </div>
+    <div class="card panel">
+      <div class="panel-head"><h3>Preferences</h3></div>
+      <div class="settings-row"><div><b>Email notifications</b><span>Get emailed on status changes</span></div><div class="switch on" onclick="this.classList.toggle('on')"><i></i></div></div>
+      <div class="settings-row"><div><b>Push notifications</b><span>Browser alerts for updates</span></div><div class="switch on" onclick="this.classList.toggle('on')"><i></i></div></div>
+      <div class="settings-row"><div><b>Dark theme</b><span>Switch to a dark interface</span></div><div class="switch" onclick="this.classList.toggle('on')"><i></i></div></div>
+      <div class="field" style="margin-top:14px;"><label>Language</label><select><option>English</option><option>Tamil</option><option>Hindi</option></select></div>
+    </div>
+  </div>`;
+
+/* ---------- TECHNICIAN ---------- */
+S['technician-dashboard']=()=>`
+  <div class="page-head"><div><h1>Good morning, Manoj</h1><p>You have 4 complaints assigned today.</p></div></div>
+  <div class="cards-row" style="grid-template-columns:repeat(4,1fr);">
+    ${statCard('Assigned Today','4','wrench','#2A4FD1')}
+    ${statCard('Pending','2','clock','#DE8F1F')}
+    ${statCard('Completed (Month)','27','check','#1F9D6C')}
+    ${statCard('Avg. Resolution','5.2 hrs','chart','#7C5CD6')}
+  </div>
+  <div class="card panel"><div class="panel-head"><h3>Assigned complaints</h3></div>
+    ${table(['ID','Title','Location','Priority','Status','Action'],[
+      ['<span class="id-cell">#CMP-1042</span>','Wi-Fi down','Block C, 2F',prio('High'),badge('In Progress'),'<button class="btn btn-outline btn-sm" onclick="showScreen(\'technician-work\')">Open</button>'],
+      ['<span class="id-cell">#CMP-1039</span>','Leaking tap','Washroom 2F',prio('Medium'),badge('Assigned'),'<button class="btn btn-outline btn-sm" onclick="showScreen(\'technician-work\')">Open</button>'],
+      ['<span class="id-cell">#CMP-1044</span>','Broken switchboard','Lab 3',prio('Critical'),badge('Assigned'),'<button class="btn btn-outline btn-sm" onclick="showScreen(\'technician-work\')">Open</button>'],
+    ])}
+  </div>`;
+
+S['technician-work']=()=>`
+  <div class="page-head"><div><h1 style="display:flex;gap:10px;align-items:center;">Wi-Fi down in Block C <span class="id-cell mono" style="font-size:13px;">#CMP-1042</span></h1><p>${prio('High')} &nbsp; ${badge('In Progress')}</p></div></div>
+  <div class="grid-2">
+    <div class="card panel">
+      <div class="meta-grid"><div class="mi"><span>Location</span><b>Block C, 2nd Floor</b></div><div class="mi"><span>Reported by</span><b>Aarav R.</b></div></div>
+      <div style="margin-top:14px;font-size:13.5px;color:var(--muted);line-height:1.6;">Wi-Fi has been completely down since this morning. Affecting 3 classrooms during lecture hours.</div>
+      <div class="panel-head" style="margin-top:18px;"><h3>Student's images</h3></div>
+      <div class="img-grid"><div class="img-ph">${ic('empty',24)}</div><div class="img-ph">${ic('empty',24)}</div></div>
+      <div class="panel-head" style="margin-top:18px;"><h3>Upload completion proof</h3></div>
+      <div class="dropzone">${ic('upload',20)}<div><b>Click to upload</b> completion photos</div></div>
+      <div class="field" style="margin-top:14px;"><label>Notes</label><textarea rows="3" placeholder="What was done to fix this..."></textarea></div>
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button class="btn btn-outline" onclick="toast('Status updated')">Update Status</button>
+        <button class="btn btn-primary" onclick="toast('Marked complete')">Mark as Complete</button>
+      </div>
+    </div>
+    <div class="card panel"><div class="panel-head"><h3>Progress</h3></div>
+      ${thread([{t:'Assigned to you',d:'Jul 24, 11:02 AM'},{t:'Started work',d:'Jul 24, 1:30 PM'},{t:'Awaiting parts',d:'In progress'},{t:'Complete',d:'Pending'}],2)}
+    </div>
+  </div>`;
+
+S['technician-completed']=()=>`
+  <div class="page-head"><div><h1>Completed Complaints</h1><p>27 resolved this month</p></div></div>
+  <div class="card panel">${table(['ID','Title','Location','Resolved On','Rating'],[
+    ['<span class="id-cell">#CMP-1031</span>','Projector not working','LH4','Jul 18','★★★★★'],
+    ['<span class="id-cell">#CMP-1022</span>','AC not cooling','Room 214','Jul 12','★★★★☆'],
+    ['<span class="id-cell">#CMP-1015</span>','Flickering lights','Corridor B','Jul 5','★★★★★'],
+  ])}</div>`;
+
+/* ---------- DEPARTMENT HEAD ---------- */
+S['head-dashboard']=()=>`
+  <div class="page-head"><div><h1>Electrical Department</h1><p>Overview for Priya K.</p></div></div>
+  <div class="cards-row">
+    ${statCard('Pending','6','clock','#DE8F1F')}
+    ${statCard('Assigned','9','userplus','#2A4FD1')}
+    ${statCard('In Progress','4','wrench','#7C5CD6')}
+    ${statCard('Escalated','2','bell','#DB4C4C')}
+    ${statCard('Resolved Today','5','check','#1F9D6C')}
+  </div>
+  <div class="grid-2">
+    <div class="card panel"><div class="panel-head"><h3>Department workload</h3></div>
+      ${barChart([{l:'Manoj',v:8},{l:'Divya',v:5},{l:'Suresh',v:3},{l:'Karthik',v:6},{l:'Anitha',v:2}])}
+    </div>
+    <div class="card panel"><div class="panel-head"><h3>Technician performance</h3></div>
+      ${donut([{l:'On-time',v:68,c:'#1F9D6C'},{l:'Delayed',v:22,c:'#DE8F1F'},{l:'Escalated',v:10,c:'#DB4C4C'}])}
+    </div>
+  </div>
+  <div class="card panel"><div class="panel-head"><h3>Recent complaints</h3></div>
+    ${table(['ID','Title','Technician','Priority','Status'],[
+      ['<span class="id-cell">#CMP-1044</span>','Broken switchboard','Unassigned',prio('Critical'),badge('Pending')],
+      ['<span class="id-cell">#CMP-1042</span>','Wi-Fi down','Manoj S.',prio('High'),badge('In Progress')],
+    ])}
+  </div>`;
+
+S['head-complaints']=()=>`
+  <div class="page-head"><div><h1>Complaints</h1><p>All complaints routed to Electrical.</p></div></div>
+  <div class="card panel">
+    <div class="table-toolbar"><div class="chip-select">${ic('filter',13)} Status: All</div><div class="chip-select">${ic('filter',13)} Priority: All</div><div class="chip-select">${ic('filter',13)} Technician: All</div></div>
+    ${table(['ID','Title','Technician','Priority','Status','Action'],[
+      ['<span class="id-cell">#CMP-1044</span>','Broken switchboard','—',prio('Critical'),badge('Pending'),'<button class="btn btn-primary btn-sm" onclick="showScreen(\'head-assign\')">Assign</button>'],
+      ['<span class="id-cell">#CMP-1042</span>','Wi-Fi down','Manoj S.',prio('High'),badge('In Progress'),'<button class="btn btn-outline btn-sm">View</button>'],
+      ['<span class="id-cell">#CMP-1039</span>','Leaking tap','Divya P.',prio('Medium'),badge('Assigned'),'<button class="btn btn-outline btn-sm">View</button>'],
+    ])}
+  </div>`;
+
+S['head-assign']=()=>`
+  <div class="page-head"><div><h1>Assign Complaint</h1><p>#CMP-1044 · Broken switchboard, Lab 3</p></div></div>
+  <div class="grid-2">
+    <div class="card panel"><div class="panel-head"><h3>Available technicians</h3></div>
+      <div class="tech-row"><div class="avatar" style="width:32px;height:32px;font-size:11px;">MS</div><div class="info"><b>Manoj S.</b><span>Electrical · 8 active</span></div><div class="workload-bar"><i style="width:80%"></i></div><span class="avail busy">Busy</span></div>
+      <div class="tech-row"><div class="avatar" style="width:32px;height:32px;font-size:11px;background:var(--purple);">DP</div><div class="info"><b>Divya P.</b><span>Electrical · 3 active</span></div><div class="workload-bar"><i style="width:35%"></i></div><span class="avail free">Available</span></div>
+      <div class="tech-row"><div class="avatar" style="width:32px;height:32px;font-size:11px;background:var(--success);">SK</div><div class="info"><b>Suresh K.</b><span>Electrical · 2 active</span></div><div class="workload-bar"><i style="width:20%"></i></div><span class="avail free">Available</span></div>
+    </div>
+    <div class="card panel">
+      <div class="field"><label>Priority</label><div class="priority-picker">
+        <button class="pp-opt" onclick="pickPrio(this)">Low</button><button class="pp-opt" onclick="pickPrio(this)">Medium</button><button class="pp-opt" onclick="pickPrio(this)">High</button><button class="pp-opt sel" onclick="pickPrio(this)">Critical</button>
+      </div></div>
+      <div class="field"><label>Estimated Completion</label><input type="date"></div>
+      <div class="field"><label>Note to technician</label><textarea rows="3" placeholder="Any context for the technician..."></textarea></div>
+      <button class="btn btn-primary" style="width:100%;" onclick="toast('Assigned to Divya P.')">Assign to Divya P.</button>
+    </div>
+  </div>`;
+
+S['head-reports']=()=>`
+  <div class="page-head"><div><h1>Reports</h1><p>Department performance and trends.</p></div>
+  <div class="page-actions"><button class="btn btn-outline btn-sm">${ic('down',13)} Export PDF</button><button class="btn btn-outline btn-sm">${ic('down',13)} Export Excel</button></div></div>
+  <div class="card panel" style="margin-bottom:16px;">
+    <div class="table-toolbar"><div class="chip-select">${ic('filter',13)} Date: Last 30 days</div><div class="chip-select">${ic('filter',13)} Priority: All</div><div class="chip-select">${ic('filter',13)} Status: All</div></div>
+  </div>
+  <div class="grid-3">
+    <div class="card panel"><div class="panel-head"><h3>By status</h3></div>${donut([{l:'Resolved',v:55,c:'#1F9D6C'},{l:'In Progress',v:25,c:'#7C5CD6'},{l:'Pending',v:20,c:'#DE8F1F'}])}</div>
+    <div class="card panel"><div class="panel-head"><h3>By category</h3></div>${donut([{l:'Electrical',v:40,c:'#2A4FD1'},{l:'Wiring',v:35,c:'#7C5CD6'},{l:'Other',v:25,c:'#8992A6'}])}</div>
+    <div class="card panel"><div class="panel-head"><h3>Weekly volume</h3></div>${barChart([{l:'W1',v:12},{l:'W2',v:18},{l:'W3',v:9},{l:'W4',v:15}])}</div>
+  </div>`;
+
+S['head-staff']=()=>`
+  <div class="page-head"><div><h1>Staff</h1><p>5 technicians in Electrical.</p></div></div>
+  <div class="card panel">${table(['Technician','Active','Resolved (Month)','Avg. Time','Rating'],[
+    ['Manoj S.','8','24','4.8 hrs','★★★★☆'],
+    ['Divya P.','3','31','3.2 hrs','★★★★★'],
+    ['Suresh K.','2','19','5.5 hrs','★★★★☆'],
+  ])}</div>`;
+
+/* ---------- ADMIN ---------- */
+S['admin-dashboard']=()=>`
+  <div class="page-head"><div><h1>System Overview</h1><p>All departments, all complaints.</p></div></div>
+  <div class="cards-row" style="grid-template-columns:repeat(4,1fr);">
+    ${statCard('Total Users','1,284','users','#2A4FD1')}
+    ${statCard('Departments','6','building','#7C5CD6')}
+    ${statCard('Open Complaints','142','clock','#DE8F1F')}
+    ${statCard('Closed Complaints','1,930','check','#1F9D6C')}
+  </div>
+  <div class="grid-2">
+    <div class="card panel"><div class="panel-head"><h3>Monthly trend</h3></div>${barChart([{l:'Feb',v:120},{l:'Mar',v:180},{l:'Apr',v:150},{l:'May',v:210},{l:'Jun',v:170},{l:'Jul',v:230,c:'var(--primary-dark)'}])}</div>
+    <div class="card panel"><div class="panel-head"><h3>Department comparison</h3></div>${barChart([{l:'Elec',v:40,c:'#2A4FD1'},{l:'Plumb',v:25,c:'#7C5CD6'},{l:'IT',v:55,c:'#1F9D6C'},{l:'Fac.',v:30,c:'#DE8F1F'}])}</div>
+  </div>
+  <div class="grid-2">
+    <div class="card panel"><div class="panel-head"><h3>Complaint categories</h3></div>${donut([{l:'Electrical',v:32,c:'#2A4FD1'},{l:'IT',v:28,c:'#1F9D6C'},{l:'Plumbing',v:22,c:'#7C5CD6'},{l:'Other',v:18,c:'#8992A6'}])}</div>
+    <div class="card panel"><div class="panel-head"><h3>Recent activity</h3></div>${notifList(3)}</div>
+  </div>`;
+
+S['admin-complaints']=()=>`
+  <div class="page-head"><div><h1>All Complaints</h1><p>Across every department.</p></div></div>
+  <div class="card panel">
+    <div class="table-toolbar"><div class="chip-select">${ic('filter',13)} Department: All</div><div class="chip-select">${ic('filter',13)} Status: All</div><div class="chip-select">${ic('filter',13)} Priority: All</div></div>
+    ${table(['ID','Title','Department','Status','Priority','Date'],[
+      ['<span class="id-cell">#CMP-1044</span>','Broken switchboard','Electrical',badge('Pending'),prio('Critical'),'Jul 25'],
+      ['<span class="id-cell">#CMP-1042</span>','Wi-Fi down','IT',badge('In Progress'),prio('High'),'Jul 24'],
+      ['<span class="id-cell">#CMP-1039</span>','Leaking tap','Plumbing',badge('Assigned'),prio('Medium'),'Jul 22'],
+      ['<span class="id-cell">#CMP-1031</span>','Projector not working','Electrical',badge('Resolved'),prio('Low'),'Jul 18'],
+    ])}
+    <div class="pagination"><span>Showing 1–4 of 142</span><div class="page-btns"><button>‹</button><button class="active">1</button><button>2</button><button>›</button></div></div>
+  </div>`;
+
+S['admin-departments']=()=>`
+  <div class="page-head"><div><h1>Departments</h1><p>6 departments configured.</p></div><div class="page-actions"><button class="btn btn-primary btn-sm">${ic('plus',14)} Add Department</button></div></div>
+  <div class="card panel">${table(['Department','Head','Staff Count','Total Complaints','Actions'],[
+    ['Electrical','Priya K.','5','412','<button class="btn btn-outline btn-sm">Edit</button>'],
+    ['Plumbing','Arjun M.','3','268','<button class="btn btn-outline btn-sm">Edit</button>'],
+    ['IT Services','Neha S.','6','590','<button class="btn btn-outline btn-sm">Edit</button>'],
+    ['Facility','Ramesh V.','4','310','<button class="btn btn-outline btn-sm">Edit</button>'],
+  ])}</div>`;
+
+S['admin-users']=()=>`
+  <div class="page-head"><div><h1>User Management</h1><p>1,284 users.</p></div><div class="page-actions"><button class="btn btn-primary btn-sm">${ic('plus',14)} Create User</button></div></div>
+  <div class="card panel">
+    <div class="table-toolbar"><div class="search-box" style="width:240px;"><span style="opacity:.5">${ic('list',14)}</span><input placeholder="Search users"></div><div class="chip-select">${ic('filter',13)} Role: All</div></div>
+    ${table(['Name','Role','Department','Email','Status','Actions'],[
+      ['Aarav R.','Student','CSE','aarav.r@kct.ac.in',badge('Assigned').replace('Assigned','Active').replace('assigned','resolved'),'<button class="btn btn-outline btn-sm">Edit</button> <button class="btn btn-danger-outline btn-sm">Disable</button>'],
+      ['Manoj S.','Technician','Electrical','manoj.s@kct.ac.in',badge('Resolved').replace('Resolved','Active'),'<button class="btn btn-outline btn-sm">Edit</button> <button class="btn btn-danger-outline btn-sm">Disable</button>'],
+      ['Priya K.','Dept. Head','Electrical','priya.k@kct.ac.in',badge('Resolved').replace('Resolved','Active'),'<button class="btn btn-outline btn-sm">Edit</button> <button class="btn btn-danger-outline btn-sm">Disable</button>'],
+    ])}
+  </div>`;
+
+S['admin-reports']=S['head-reports'];
+
+/* ---------------- NAV RENDER ---------------- */
+function renderSidebar(){
+  const r=ROLES[currentRole];
+  document.getElementById('sidebar').innerHTML=`
+    <div class="brand-mark"><span class="dot"></span><span>ResolveDesk</span></div>
+    <div class="side-section">${r.label} Menu</div>
+    ${r.nav.map(n=>`<a class="nav-item ${n.id===currentScreen?'active':''}" onclick="showScreen('${n.id}')">${ic(n.icon,16)}${n.label}</a>`).join('')}
+    <div class="sidebar-foot">
+      <div class="user-chip" onclick="showScreen('${currentRole}-settings')">
+        <div class="avatar">${r.initials}</div>
+        <div class="who">${r.name}<span>${r.sub}</span></div>
+      </div>
+      <a class="nav-item" onclick="logout()" style="margin-top:4px;">${ic('logout',16)}Log out</a>
+    </div>`;
+  document.getElementById('topAvatar').textContent=r.initials;
+
+  const mn=document.getElementById('mobileNav');
+  mn.innerHTML=r.nav.slice(0,4).map(n=>`<a class="${n.id===currentScreen?'active':''}" onclick="showScreen('${n.id}')">${ic(n.icon,19)}<span>${n.label.split(' ')[0]}</span></a>`).join('');
+  document.getElementById('fabBtn').style.display = currentRole==='student' ? 'flex' : 'none';
+}
+function showScreen(id){
+  currentScreen=id;
+  const renderFn = S[id] || S[currentRole+'-dashboard'];
+  document.getElementById('content').innerHTML = renderFn();
+  renderSidebar();
+  window.scrollTo(0,0);
+}
+function enterApp(role){
+  currentRole=role;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-shell').style.display='block';
+  showScreen(role+'-dashboard');
+}
+function logout(){
+  document.getElementById('app-shell').style.display='none';
+  document.getElementById('login-screen').style.display='grid';
+}
+function pickPrio(el){
+  el.parentElement.querySelectorAll('.pp-opt').forEach(x=>x.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function toggleSidebar(){ toast('Menu — use bottom nav on mobile'); }
+</script>
+</body>
+</html>

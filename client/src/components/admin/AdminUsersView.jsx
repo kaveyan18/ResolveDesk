@@ -1,0 +1,489 @@
+import { useState, useEffect, useCallback } from 'react';
+import { api } from '../../services/api';
+import {
+  UserPlus,
+  Search,
+  Filter,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Edit,
+  Trash2,
+  Loader2,
+  AlertCircle,
+  X,
+} from 'lucide-react';
+
+export default function AdminUsersView() {
+  const [users, setUsers] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Filters
+  const [roleFilter, setRoleFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Modal State
+  const [showModal, setShowModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'Student',
+    department: '',
+    phone: '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  // Load Departments for Modal Select
+  useEffect(() => {
+    async function loadDepts() {
+      try {
+        const res = await api.getDepartments();
+        if (res.status === 'success' && res.data) {
+          setDepartments(res.data.departments || []);
+        }
+      } catch (err) {
+        console.error('Error loading departments for user modal:', err);
+      }
+    }
+    loadDepts();
+  }, []);
+
+  // Fetch Users List
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const params = new URLSearchParams();
+      if (roleFilter !== 'All') params.append('role', roleFilter);
+      if (statusFilter !== 'All') params.append('status', statusFilter);
+      if (searchTerm.trim()) params.append('search', searchTerm.trim());
+
+      const queryStr = params.toString() ? `?${params.toString()}` : '';
+      const res = await api.getAdminUsers(queryStr);
+      if (res.status === 'success' && res.data) {
+        setUsers(res.data.users || []);
+      }
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError(err.message || 'Failed to load users list.');
+    } finally {
+      setLoading(false);
+    }
+  }, [roleFilter, statusFilter, searchTerm]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // Actions
+  const handleApprove = async (id) => {
+    try {
+      await api.approveStaffUser(id);
+      fetchUsers();
+    } catch (err) {
+      console.error('Failed to approve user:', err);
+      setError(err.message || 'Failed to approve staff user.');
+    }
+  };
+
+  const handleToggleActive = async (id) => {
+    try {
+      await api.toggleUserActive(id);
+      fetchUsers();
+    } catch (err) {
+      console.error('Failed to toggle user active status:', err);
+      setError(err.message || 'Failed to update user status.');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    try {
+      await api.deleteAdminUser(id);
+      fetchUsers();
+    } catch (err) {
+      console.error('Failed to delete user:', err);
+      setError(err.message || 'Failed to delete user.');
+    }
+  };
+
+  const handleOpenCreateModal = () => {
+    setEditingUser(null);
+    setFormData({
+      name: '',
+      email: '',
+      password: '',
+      role: 'Student',
+      department: '',
+      phone: '',
+    });
+    setShowModal(true);
+  };
+
+  const handleOpenEditModal = (u) => {
+    setEditingUser(u);
+    setFormData({
+      name: u.name || '',
+      email: u.email || '',
+      password: '',
+      role: u.role || 'Student',
+      department: u.department?._id || u.department || '',
+      phone: u.phone || '',
+    });
+    setShowModal(true);
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setSaving(true);
+      setError(null);
+      if (editingUser) {
+        await api.updateAdminUser(editingUser._id, formData);
+      } else {
+        await api.createAdminUser(formData);
+      }
+      setShowModal(false);
+      fetchUsers();
+    } catch (err) {
+      console.error('Failed to save user:', err);
+      setError(err.message || 'Failed to save user.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const renderRoleBadge = (role) => {
+    const roleStyles = {
+      Student: 'bg-brand-soft text-brand border-blue-200',
+      Technician: 'bg-purple-soft text-purple border-purple-200',
+      DepartmentHead: 'bg-amber-50 text-amber-800 border-amber-200',
+      Admin: 'bg-red-50 text-status-danger border-red-200',
+    };
+    const labels = {
+      DepartmentHead: 'Dept. Head',
+    };
+
+    return (
+      <span
+        className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+          roleStyles[role] || roleStyles.Student
+        }`}
+      >
+        {labels[role] || role}
+      </span>
+    );
+  };
+
+  const renderStatusBadge = (userObj) => {
+    if (!userObj.isActive) {
+      if (['Technician', 'DepartmentHead'].includes(userObj.role)) {
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-amber-50 text-amber-800 border-amber-200">
+            <Clock className="w-3 h-3 text-status-warning" /> Pending Approval
+          </span>
+        );
+      }
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-gray-soft text-slate-600 border-slate-200">
+          <XCircle className="w-3 h-3" /> Disabled
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-emerald-50 text-emerald-800 border-emerald-200">
+        <CheckCircle className="w-3 h-3 text-status-success" /> Active
+      </span>
+    );
+  };
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto">
+      {/* PAGE HEADER WITH CREATE USER ACTION */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-surface-border pb-4">
+        <div>
+          <h1 className="text-2xl font-bold font-display text-ink">User Management</h1>
+          <p className="text-sm text-ink-muted mt-0.5">{users.length} registered users.</p>
+        </div>
+
+        <button
+          onClick={handleOpenCreateModal}
+          className="px-4 py-2.5 bg-brand text-white rounded-xl text-xs font-bold hover:bg-brand-dark transition shadow-sm flex items-center gap-2"
+        >
+          <UserPlus className="w-4 h-4" /> Create User
+        </button>
+      </div>
+
+      {/* TOOLBAR & FILTERS */}
+      <div className="bg-white rounded-2xl border border-surface-border p-4 shadow-card">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+            {/* Search Box */}
+            <div className="flex items-center gap-2 bg-surface-bg border border-surface-border rounded-xl px-3 py-1.5 w-full sm:w-64 text-ink-muted">
+              <Search className="w-4 h-4 opacity-50 flex-shrink-0" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search users by name/email..."
+                className="bg-transparent border-none text-xs w-full focus:outline-none text-ink placeholder:text-ink-muted"
+              />
+            </div>
+
+            {/* Role Filter */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-bg border border-surface-border text-xs text-ink font-semibold">
+              <Filter className="w-3.5 h-3.5 text-ink-muted" />
+              <span>Role:</span>
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="bg-transparent border-none focus:outline-none cursor-pointer font-bold text-brand"
+              >
+                <option value="All">All Roles</option>
+                <option value="Student">Student</option>
+                <option value="Technician">Technician</option>
+                <option value="DepartmentHead">Department Head</option>
+                <option value="Admin">Admin</option>
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-bg border border-surface-border text-xs text-ink font-semibold">
+              <Filter className="w-3.5 h-3.5 text-ink-muted" />
+              <span>Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-transparent border-none focus:outline-none cursor-pointer font-bold text-brand"
+              >
+                <option value="All">All</option>
+                <option value="Active">Active</option>
+                <option value="Disabled">Disabled</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={fetchUsers}
+            className="px-3 py-1 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* USERS TABLE */}
+      <div className="bg-white rounded-2xl border border-surface-border p-6 shadow-card space-y-4">
+        {loading ? (
+          <div className="py-20 flex flex-col items-center justify-center space-y-3 text-ink">
+            <Loader2 className="w-8 h-8 animate-spin text-brand" />
+            <p className="text-xs font-mono text-ink-muted">Loading users list...</p>
+          </div>
+        ) : users.length === 0 ? (
+          <div className="py-16 text-center space-y-2 text-ink-muted">
+            <p className="text-sm font-semibold text-ink">No users found</p>
+            <p className="text-xs">No user records match your search query.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-surface-border text-[11.5px] uppercase tracking-wider text-ink-muted font-semibold">
+                  <th className="pb-3 px-3">Name</th>
+                  <th className="pb-3 px-3">Role</th>
+                  <th className="pb-3 px-3">Department</th>
+                  <th className="pb-3 px-3">Email</th>
+                  <th className="pb-3 px-3">Status</th>
+                  <th className="pb-3 px-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-border text-xs">
+                {users.map((u) => {
+                  const isPendingStaff =
+                    !u.isActive && ['Technician', 'DepartmentHead'].includes(u.role);
+
+                  return (
+                    <tr key={u._id} className="hover:bg-surface-bg/60 transition">
+                      <td className="py-3.5 px-3 font-semibold text-ink">{u.name}</td>
+                      <td className="py-3.5 px-3">{renderRoleBadge(u.role)}</td>
+                      <td className="py-3.5 px-3 text-ink-muted">
+                        {u.department?.name || 'General'}
+                      </td>
+                      <td className="py-3.5 px-3 font-mono text-ink-muted">{u.email}</td>
+                      <td className="py-3.5 px-3">{renderStatusBadge(u)}</td>
+                      <td className="py-3.5 px-3 text-right space-x-1.5">
+                        {isPendingStaff && (
+                          <button
+                            onClick={() => handleApprove(u._id)}
+                            className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 transition shadow-xs"
+                          >
+                            Approve
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleOpenEditModal(u)}
+                          className="px-2.5 py-1 bg-white border border-surface-border text-ink rounded-lg text-xs font-semibold hover:border-brand hover:text-brand transition shadow-subtle inline-flex items-center gap-1"
+                        >
+                          <Edit className="w-3 h-3" /> Edit
+                        </button>
+                        <button
+                          onClick={() => handleToggleActive(u._id)}
+                          className={`px-2.5 py-1 border rounded-lg text-xs font-semibold transition ${
+                            u.isActive
+                              ? 'bg-red-50 border-red-200 text-status-danger hover:bg-red-100'
+                              : 'bg-emerald-50 border-emerald-200 text-status-success hover:bg-emerald-100'
+                          }`}
+                        >
+                          {u.isActive ? 'Disable' : 'Enable'}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(u._id)}
+                          className="p-1 text-slate-400 hover:text-status-danger transition"
+                          title="Delete User"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* CREATE / EDIT USER MODAL DIALOG */}
+      {showModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-surface-border max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-surface-border pb-3">
+              <h3 className="text-sm font-bold font-display text-ink">
+                {editingUser ? 'Edit User' : 'Create New User'}
+              </h3>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-1 text-ink-muted hover:text-ink rounded-lg transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleFormSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g. Priya K."
+                  className="w-full p-2.5 border border-surface-border rounded-xl text-xs bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand transition"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="name@kct.ac.in"
+                  className="w-full p-2.5 border border-surface-border rounded-xl text-xs bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand transition font-mono"
+                />
+              </div>
+
+              {!editingUser && (
+                <div className="space-y-1">
+                  <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="••••••••"
+                    className="w-full p-2.5 border border-surface-border rounded-xl text-xs bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand transition font-mono"
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
+                    Role
+                  </label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    className="w-full p-2.5 border border-surface-border rounded-xl text-xs bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand transition font-semibold text-brand"
+                  >
+                    <option value="Student">Student</option>
+                    <option value="Technician">Technician</option>
+                    <option value="DepartmentHead">Department Head</option>
+                    <option value="Admin">Admin</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
+                    Department
+                  </label>
+                  <select
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    className="w-full p-2.5 border border-surface-border rounded-xl text-xs bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand transition"
+                  >
+                    <option value="">None / General</option>
+                    {departments.map((d) => (
+                      <option key={d._id} value={d._id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 bg-surface-bg text-ink rounded-xl text-xs font-semibold hover:bg-slate-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-4 py-2 bg-brand text-white rounded-xl text-xs font-bold hover:bg-brand-dark transition shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save User'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
