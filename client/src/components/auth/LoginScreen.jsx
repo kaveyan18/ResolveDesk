@@ -10,8 +10,8 @@ export default function LoginScreen() {
   const [mode, setMode] = useState('login');
 
   // Form Fields State
-  const [email, setEmail] = useState('student@kct.ac.in');
-  const [password, setPassword] = useState('Password@123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -91,14 +91,6 @@ export default function LoginScreen() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Demo role picker helper
-  const handlePickDemoRole = (roleEmail) => {
-    setEmail(roleEmail);
-    setPassword('Password@123');
-    setErrorMessage('');
-    setSuccessMessage('');
   };
 
   return (
@@ -258,50 +250,6 @@ export default function LoginScreen() {
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Log in'}
                 </button>
               </form>
-
-              {/* Prototype Demo Role Quick-Picker */}
-              <div className="pt-4 border-t border-surface-border space-y-2.5">
-                <p className="text-xs font-semibold text-ink-muted text-center uppercase tracking-wider">
-                  Preview as (demo)
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handlePickDemoRole('student@kct.ac.in')}
-                    className="p-2.5 border border-surface-border rounded-xl bg-white hover:border-brand hover:bg-brand-soft/40 text-left transition cursor-pointer group"
-                  >
-                    <b className="block text-xs text-ink group-hover:text-brand">Student</b>
-                    <span className="text-[10.5px] text-ink-muted block">Raise & track</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handlePickDemoRole('technician@kct.ac.in')}
-                    className="p-2.5 border border-surface-border rounded-xl bg-white hover:border-purple hover:bg-purple-soft/40 text-left transition cursor-pointer group"
-                  >
-                    <b className="block text-xs text-ink group-hover:text-purple">Technician</b>
-                    <span className="text-[10.5px] text-ink-muted block">Resolve tasks</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handlePickDemoRole('depthead@kct.ac.in')}
-                    className="p-2.5 border border-surface-border rounded-xl bg-white hover:border-amber-500 hover:bg-amber-50 text-left transition cursor-pointer group"
-                  >
-                    <b className="block text-xs text-ink group-hover:text-amber-800">Dept. Head</b>
-                    <span className="text-[10.5px] text-ink-muted block">Assign & review</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handlePickDemoRole('admin@kct.ac.in')}
-                    className="p-2.5 border border-surface-border rounded-xl bg-white hover:border-status-danger hover:bg-red-50 text-left transition cursor-pointer group"
-                  >
-                    <b className="block text-xs text-ink group-hover:text-status-danger">Admin</b>
-                    <span className="text-[10.5px] text-ink-muted block">Full control</span>
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 

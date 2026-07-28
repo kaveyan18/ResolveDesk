@@ -54,7 +54,3 @@ Use the credentials below to log into each of the four roles in ResolveDesk for 
   - User management CRUD (Create, Edit, Disable/Enable, Delete, and Staff Approval flow).
   - Department management CRUD (Name, Code, Department Head assignment, Description).
   - System-wide report analytics with filter toolbar and CSV export.
-
----
-
-> **Note**: Demo role quick-picker buttons on the login screen also allow instant preview as any role with a single click.
