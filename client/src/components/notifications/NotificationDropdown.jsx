@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
+import TableSkeleton from '../common/TableSkeleton';
+import EmptyState from '../common/EmptyState';
 import {
   Bell,
   Wrench,
@@ -146,7 +148,7 @@ export default function NotificationDropdown({
             <button
               onClick={handleMarkAllRead}
               disabled={markingAll}
-              className="text-[11px] text-sidebar-text hover:text-white transition flex items-center gap-1 px-2 py-0.5 rounded hover:bg-sidebar-soft"
+              className="text-[11px] text-sidebar-text hover:text-white transition flex items-center gap-1 px-2 py-0.5 rounded hover:bg-sidebar-soft cursor-pointer"
               title="Mark all as read"
             >
               {markingAll ? (
@@ -159,7 +161,7 @@ export default function NotificationDropdown({
           )}
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-sidebar-text hover:text-white hover:bg-sidebar-soft transition"
+            className="p-1 rounded-lg text-sidebar-text hover:text-white hover:bg-sidebar-soft transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -169,16 +171,13 @@ export default function NotificationDropdown({
       {/* Body List */}
       <div className="flex-1 p-2 overflow-y-auto space-y-1 bg-surface-bg/40 max-h-80">
         {loading ? (
-          <div className="py-12 flex flex-col items-center justify-center space-y-2 text-ink-muted">
-            <Loader2 className="w-5 h-5 animate-spin text-brand" />
-            <span className="text-xs font-mono">Loading notifications...</span>
-          </div>
+          <TableSkeleton rows={3} cols={2} />
         ) : notifications.length === 0 ? (
-          <div className="py-12 text-center space-y-1.5 text-ink-muted">
-            <Bell className="w-6 h-6 opacity-40 text-brand mx-auto" />
-            <p className="text-xs font-semibold text-ink">No notifications</p>
-            <p className="text-[11px]">You are all caught up!</p>
-          </div>
+          <EmptyState
+            icon={Bell}
+            title="No notifications"
+            message="You are all caught up!"
+          />
         ) : (
           notifications.map((n) => (
             <div
@@ -220,7 +219,7 @@ export default function NotificationDropdown({
             onClose();
             onViewAll();
           }}
-          className="text-xs text-brand font-semibold hover:underline flex items-center justify-center gap-1 mx-auto"
+          className="text-xs text-brand font-semibold hover:underline flex items-center justify-center gap-1 mx-auto cursor-pointer"
         >
           View all notifications <ArrowRight className="w-3.5 h-3.5" />
         </button>

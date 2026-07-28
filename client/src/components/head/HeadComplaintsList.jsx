@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
+import TableSkeleton from '../common/TableSkeleton';
+import EmptyState from '../common/EmptyState';
+import ErrorState from '../common/ErrorState';
 import {
   Filter,
   Search,
   UserPlus,
   ArrowRight,
-  Loader2,
-  AlertCircle,
+  FileQuestion,
 } from 'lucide-react';
 
 export default function HeadComplaintsList({ onAssign, onSelectComplaint }) {
@@ -189,37 +191,29 @@ export default function HeadComplaintsList({ onAssign, onSelectComplaint }) {
       </div>
 
       {/* Error Alert */}
-      {error && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-          <button
-            onClick={fetchComplaints}
-            className="px-3 py-1 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700"
-          >
-            Retry
-          </button>
-        </div>
-      )}
+      {error && <ErrorState message={error} onRetry={fetchComplaints} />}
 
       {/* Complaints Table */}
       <div className="bg-white rounded-2xl border border-surface-border p-6 shadow-card space-y-4">
         {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center space-y-3 text-ink">
-            <Loader2 className="w-8 h-8 animate-spin text-brand" />
-            <p className="text-xs font-mono text-ink-muted">Loading department complaints...</p>
-          </div>
+          <TableSkeleton rows={5} cols={6} />
         ) : complaints.length === 0 ? (
-          <div className="py-16 text-center space-y-2">
-            <p className="text-sm font-semibold text-ink">No complaints found</p>
-            <p className="text-xs text-ink-muted">No complaints match your current filter parameters.</p>
-          </div>
+          <EmptyState
+            icon={FileQuestion}
+            title="No complaints found"
+            message="No complaints match your current filter parameters."
+            actionLabel={searchTerm || statusFilter !== 'All' || priorityFilter !== 'All' || technicianFilter !== 'All' ? 'Clear Filters' : undefined}
+            onAction={() => {
+              setSearchTerm('');
+              setStatusFilter('All');
+              setPriorityFilter('All');
+              setTechnicianFilter('All');
+            }}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
-              <thead>
+              <thead className="hidden md:table-header-group">
                 <tr className="border-b border-surface-border text-[11.5px] uppercase tracking-wider text-ink-muted font-semibold">
                   <th className="pb-3 px-3">ID</th>
                   <th className="pb-3 px-3">Title</th>
@@ -229,33 +223,48 @@ export default function HeadComplaintsList({ onAssign, onSelectComplaint }) {
                   <th className="pb-3 px-3 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-surface-border text-xs">
+              <tbody className="divide-y-0 md:divide-y divide-surface-border text-xs block md:table-row-group">
                 {complaints.map((c) => {
                   const isUnassignedOrPending = c.status === 'Pending' || !c.assignedTechnician;
 
                   return (
-                    <tr key={c._id} className="hover:bg-surface-bg/60 transition">
-                      <td className="py-3.5 px-3 font-mono text-brand font-semibold">{c.ticketId}</td>
-                      <td className="py-3.5 px-3 font-semibold text-ink max-w-[240px] truncate">
-                        {c.title}
+                    <tr
+                      key={c._id}
+                      className="block md:table-row p-4 border border-surface-border rounded-2xl mb-3 bg-white hover:bg-surface-bg/60 transition shadow-xs md:shadow-none md:border-none md:mb-0 md:p-0"
+                    >
+                      <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3 font-mono text-brand font-semibold">
+                        <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">ID</span>
+                        {c.ticketId}
                       </td>
-                      <td className="py-3.5 px-3 text-ink-muted">
-                        {c.assignedTechnician?.name || '—'}
+                      <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3 font-semibold text-ink max-w-[240px] truncate">
+                        <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Title</span>
+                        <span>{c.title}</span>
                       </td>
-                      <td className="py-3.5 px-3">{renderPriority(c.priority)}</td>
-                      <td className="py-3.5 px-3">{renderBadge(c.status)}</td>
-                      <td className="py-3.5 px-3 text-right">
+                      <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3 text-ink-muted">
+                        <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Technician</span>
+                        <span>{c.assignedTechnician?.name || '—'}</span>
+                      </td>
+                      <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3">
+                        <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Priority</span>
+                        {renderPriority(c.priority)}
+                      </td>
+                      <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3">
+                        <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Status</span>
+                        {renderBadge(c.status)}
+                      </td>
+                      <td className="flex justify-between items-center py-2 md:table-cell md:py-3.5 md:px-3 md:text-right">
+                        <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Action</span>
                         {isUnassignedOrPending ? (
                           <button
                             onClick={() => onAssign && onAssign(c)}
-                            className="px-3.5 py-1.5 bg-brand text-white rounded-lg text-xs font-semibold hover:bg-brand-dark transition shadow-sm inline-flex items-center gap-1.5"
+                            className="px-3.5 py-1.5 bg-brand text-white rounded-lg text-xs font-semibold hover:bg-brand-dark transition shadow-sm inline-flex items-center gap-1.5 cursor-pointer"
                           >
                             <UserPlus className="w-3.5 h-3.5" /> Assign
                           </button>
                         ) : (
                           <button
                             onClick={() => onSelectComplaint && onSelectComplaint(c.ticketId || c._id)}
-                            className="px-3 py-1.5 bg-white border border-surface-border text-ink rounded-lg text-xs font-semibold hover:border-brand hover:text-brand transition shadow-subtle inline-flex items-center gap-1"
+                            className="px-3 py-1.5 bg-white border border-surface-border text-ink rounded-lg text-xs font-semibold hover:border-brand hover:text-brand transition shadow-subtle inline-flex items-center gap-1 cursor-pointer"
                           >
                             View <ArrowRight className="w-3 h-3" />
                           </button>

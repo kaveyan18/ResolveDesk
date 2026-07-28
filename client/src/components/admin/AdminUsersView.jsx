@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
+import TableSkeleton from '../common/TableSkeleton';
+import EmptyState from '../common/EmptyState';
+import ErrorState from '../common/ErrorState';
 import {
   UserPlus,
   Search,
@@ -10,8 +13,8 @@ import {
   Edit,
   Trash2,
   Loader2,
-  AlertCircle,
   X,
+  Users,
 } from 'lucide-react';
 
 export default function AdminUsersView() {
@@ -165,37 +168,30 @@ export default function AdminUsersView() {
       DepartmentHead: 'bg-amber-50 text-amber-800 border-amber-200',
       Admin: 'bg-red-50 text-status-danger border-red-200',
     };
-    const labels = {
-      DepartmentHead: 'Dept. Head',
-    };
-
+    const style = roleStyles[role] || roleStyles.Student;
     return (
-      <span
-        className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-          roleStyles[role] || roleStyles.Student
-        }`}
-      >
-        {labels[role] || role}
+      <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border ${style}`}>
+        {role === 'DepartmentHead' ? 'Dept Head' : role}
       </span>
     );
   };
 
-  const renderStatusBadge = (userObj) => {
-    if (!userObj.isActive) {
-      if (['Technician', 'DepartmentHead'].includes(userObj.role)) {
+  const renderStatusBadge = (u) => {
+    if (!u.isActive) {
+      const isPendingStaff = ['Technician', 'DepartmentHead'].includes(u.role);
+      if (isPendingStaff) {
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-amber-50 text-amber-800 border-amber-200">
-            <Clock className="w-3 h-3 text-status-warning" /> Pending Approval
+            <Clock className="w-3 h-3 text-amber-500" /> Pending Approval
           </span>
         );
       }
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-gray-soft text-slate-600 border-slate-200">
-          <XCircle className="w-3 h-3" /> Disabled
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-red-50 text-red-800 border-red-200">
+          <XCircle className="w-3 h-3 text-status-danger" /> Disabled
         </span>
       );
     }
-
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-emerald-50 text-emerald-800 border-emerald-200">
         <CheckCircle className="w-3 h-3 text-status-success" /> Active
@@ -214,7 +210,7 @@ export default function AdminUsersView() {
 
         <button
           onClick={handleOpenCreateModal}
-          className="px-4 py-2.5 bg-brand text-white rounded-xl text-xs font-bold hover:bg-brand-dark transition shadow-sm flex items-center gap-2"
+          className="px-4 py-2.5 bg-brand text-white rounded-xl text-xs font-bold hover:bg-brand-dark transition shadow-sm flex items-center gap-2 cursor-pointer"
         >
           <UserPlus className="w-4 h-4" /> Create User
         </button>
@@ -271,37 +267,28 @@ export default function AdminUsersView() {
         </div>
       </div>
 
-      {error && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-          <button
-            onClick={fetchUsers}
-            className="px-3 py-1 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700"
-          >
-            Retry
-          </button>
-        </div>
-      )}
+      {error && <ErrorState message={error} onRetry={fetchUsers} />}
 
       {/* USERS TABLE */}
       <div className="bg-white rounded-2xl border border-surface-border p-6 shadow-card space-y-4">
         {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center space-y-3 text-ink">
-            <Loader2 className="w-8 h-8 animate-spin text-brand" />
-            <p className="text-xs font-mono text-ink-muted">Loading users list...</p>
-          </div>
+          <TableSkeleton rows={5} cols={6} />
         ) : users.length === 0 ? (
-          <div className="py-16 text-center space-y-2 text-ink-muted">
-            <p className="text-sm font-semibold text-ink">No users found</p>
-            <p className="text-xs">No user records match your search query.</p>
-          </div>
+          <EmptyState
+            icon={Users}
+            title="No users found"
+            message="No user accounts match your current search or filter parameters."
+            actionLabel={searchTerm || roleFilter !== 'All' || statusFilter !== 'All' ? 'Reset Filters' : undefined}
+            onAction={() => {
+              setSearchTerm('');
+              setRoleFilter('All');
+              setStatusFilter('All');
+            }}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
-              <thead>
+              <thead className="hidden md:table-header-group">
                 <tr className="border-b border-surface-border text-[11.5px] uppercase tracking-wider text-ink-muted font-semibold">
                   <th className="pb-3 px-3">Name</th>
                   <th className="pb-3 px-3">Role</th>
@@ -311,52 +298,71 @@ export default function AdminUsersView() {
                   <th className="pb-3 px-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-surface-border text-xs">
+              <tbody className="divide-y-0 md:divide-y divide-surface-border text-xs block md:table-row-group">
                 {users.map((u) => {
                   const isPendingStaff =
                     !u.isActive && ['Technician', 'DepartmentHead'].includes(u.role);
 
                   return (
-                    <tr key={u._id} className="hover:bg-surface-bg/60 transition">
-                      <td className="py-3.5 px-3 font-semibold text-ink">{u.name}</td>
-                      <td className="py-3.5 px-3">{renderRoleBadge(u.role)}</td>
-                      <td className="py-3.5 px-3 text-ink-muted">
-                        {u.department?.name || 'General'}
+                    <tr
+                      key={u._id}
+                      className="block md:table-row p-4 border border-surface-border rounded-2xl mb-3 bg-white hover:bg-surface-bg/60 transition shadow-xs md:shadow-none md:border-none md:mb-0 md:p-0"
+                    >
+                      <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3 font-semibold text-ink">
+                        <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Name</span>
+                        <span>{u.name}</span>
                       </td>
-                      <td className="py-3.5 px-3 font-mono text-ink-muted">{u.email}</td>
-                      <td className="py-3.5 px-3">{renderStatusBadge(u)}</td>
-                      <td className="py-3.5 px-3 text-right space-x-1.5">
-                        {isPendingStaff && (
+                      <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3">
+                        <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Role</span>
+                        {renderRoleBadge(u.role)}
+                      </td>
+                      <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3 text-ink-muted">
+                        <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Department</span>
+                        <span>{u.department?.name || 'General'}</span>
+                      </td>
+                      <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3 font-mono text-ink-muted">
+                        <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Email</span>
+                        <span>{u.email}</span>
+                      </td>
+                      <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3">
+                        <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Status</span>
+                        {renderStatusBadge(u)}
+                      </td>
+                      <td className="flex justify-between items-center py-2 md:table-cell md:py-3.5 md:px-3 md:text-right space-x-1.5">
+                        <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Actions</span>
+                        <div className="flex items-center gap-1.5 justify-end">
+                          {isPendingStaff && (
+                            <button
+                              onClick={() => handleApprove(u._id)}
+                              className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 transition shadow-xs cursor-pointer"
+                            >
+                              Approve
+                            </button>
+                          )}
                           <button
-                            onClick={() => handleApprove(u._id)}
-                            className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 transition shadow-xs"
+                            onClick={() => handleOpenEditModal(u)}
+                            className="px-2.5 py-1 bg-white border border-surface-border text-ink rounded-lg text-xs font-semibold hover:border-brand hover:text-brand transition shadow-subtle inline-flex items-center gap-1 cursor-pointer"
                           >
-                            Approve
+                            <Edit className="w-3 h-3" /> Edit
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleOpenEditModal(u)}
-                          className="px-2.5 py-1 bg-white border border-surface-border text-ink rounded-lg text-xs font-semibold hover:border-brand hover:text-brand transition shadow-subtle inline-flex items-center gap-1"
-                        >
-                          <Edit className="w-3 h-3" /> Edit
-                        </button>
-                        <button
-                          onClick={() => handleToggleActive(u._id)}
-                          className={`px-2.5 py-1 border rounded-lg text-xs font-semibold transition ${
-                            u.isActive
-                              ? 'bg-red-50 border-red-200 text-status-danger hover:bg-red-100'
-                              : 'bg-emerald-50 border-emerald-200 text-status-success hover:bg-emerald-100'
-                          }`}
-                        >
-                          {u.isActive ? 'Disable' : 'Enable'}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(u._id)}
-                          className="p-1 text-slate-400 hover:text-status-danger transition"
-                          title="Delete User"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                          <button
+                            onClick={() => handleToggleActive(u._id)}
+                            className={`px-2.5 py-1 border rounded-lg text-xs font-semibold transition cursor-pointer ${
+                              u.isActive
+                                ? 'bg-red-50 border-red-200 text-status-danger hover:bg-red-100'
+                                : 'bg-emerald-50 border-emerald-200 text-status-success hover:bg-emerald-100'
+                            }`}
+                          >
+                            {u.isActive ? 'Disable' : 'Enable'}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(u._id)}
+                            className="p-1 text-ink-muted hover:text-status-danger transition cursor-pointer"
+                            title="Delete user"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -367,25 +373,25 @@ export default function AdminUsersView() {
         )}
       </div>
 
-      {/* CREATE / EDIT USER MODAL DIALOG */}
+      {/* CREATE / EDIT USER MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+        <div className="fixed inset-0 bg-ink/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white rounded-2xl border border-surface-border max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-surface-border pb-3">
-              <h3 className="text-sm font-bold font-display text-ink">
+              <h3 className="text-base font-bold font-display text-ink">
                 {editingUser ? 'Edit User' : 'Create New User'}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1 text-ink-muted hover:text-ink rounded-lg transition"
+                className="p-1 rounded-lg text-ink-muted hover:text-ink transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="space-y-4">
+            <form onSubmit={handleFormSubmit} className="space-y-4 text-xs">
               <div className="space-y-1">
-                <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
+                <label className="block font-semibold text-ink-muted uppercase text-[10.5px]">
                   Full Name
                 </label>
                 <input
@@ -394,27 +400,28 @@ export default function AdminUsersView() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g. Priya K."
-                  className="w-full p-2.5 border border-surface-border rounded-xl text-xs bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand transition"
+                  className="w-full p-2.5 border border-surface-border rounded-xl bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
-                  Email Address
+                <label className="block font-semibold text-ink-muted uppercase text-[10.5px]">
+                  College Email
                 </label>
                 <input
                   type="email"
                   required
+                  disabled={Boolean(editingUser)}
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="name@kct.ac.in"
-                  className="w-full p-2.5 border border-surface-border rounded-xl text-xs bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand transition font-mono"
+                  placeholder="you@kct.ac.in"
+                  className="w-full p-2.5 border border-surface-border rounded-xl bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand disabled:bg-slate-100 disabled:cursor-not-allowed"
                 />
               </div>
 
               {!editingUser && (
                 <div className="space-y-1">
-                  <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
+                  <label className="block font-semibold text-ink-muted uppercase text-[10.5px]">
                     Password
                   </label>
                   <input
@@ -423,20 +430,20 @@ export default function AdminUsersView() {
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="••••••••"
-                    className="w-full p-2.5 border border-surface-border rounded-xl text-xs bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand transition font-mono"
+                    className="w-full p-2.5 border border-surface-border rounded-xl bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand"
                   />
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
+                  <label className="block font-semibold text-ink-muted uppercase text-[10.5px]">
                     Role
                   </label>
                   <select
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full p-2.5 border border-surface-border rounded-xl text-xs bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand transition font-semibold text-brand"
+                    className="w-full p-2.5 border border-surface-border rounded-xl bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand font-semibold text-brand cursor-pointer"
                   >
                     <option value="Student">Student</option>
                     <option value="Technician">Technician</option>
@@ -446,13 +453,13 @@ export default function AdminUsersView() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
+                  <label className="block font-semibold text-ink-muted uppercase text-[10.5px]">
                     Department
                   </label>
                   <select
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="w-full p-2.5 border border-surface-border rounded-xl text-xs bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand transition"
+                    className="w-full p-2.5 border border-surface-border rounded-xl bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand cursor-pointer"
                   >
                     <option value="">None / General</option>
                     {departments.map((d) => (
@@ -464,20 +471,20 @@ export default function AdminUsersView() {
                 </div>
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-surface-border">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 bg-surface-bg text-ink rounded-xl text-xs font-semibold hover:bg-slate-200 transition"
+                  className="px-4 py-2 border border-surface-border text-ink rounded-xl font-semibold hover:bg-surface-bg transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 bg-brand text-white rounded-xl text-xs font-bold hover:bg-brand-dark transition shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-5 py-2 bg-brand text-white rounded-xl font-semibold hover:bg-brand-dark transition shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
-                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save User'}
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save User'}
                 </button>
               </div>
             </form>

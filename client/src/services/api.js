@@ -57,6 +57,18 @@ export const api = {
       method: 'GET',
     }),
 
+  updateProfile: (userData) =>
+    request('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    }),
+
+  changePassword: (passwordData) =>
+    request('/auth/password', {
+      method: 'PUT',
+      body: JSON.stringify(passwordData),
+    }),
+
   getAdminOverview: () =>
     request('/admin/overview', {
       method: 'GET',

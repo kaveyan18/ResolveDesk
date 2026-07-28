@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
+import TableSkeleton from '../common/TableSkeleton';
+import EmptyState from '../common/EmptyState';
+import ErrorState from '../common/ErrorState';
 import {
   Bell,
   Wrench,
@@ -7,7 +10,6 @@ import {
   MessageSquare,
   CheckCheck,
   Loader2,
-  AlertCircle,
 } from 'lucide-react';
 
 export default function NotificationsList({ onSelectComplaint, onNotificationsUpdated }) {
@@ -129,15 +131,6 @@ export default function NotificationsList({ onSelectComplaint, onNotificationsUp
     });
   };
 
-  if (loading) {
-    return (
-      <div className="py-24 flex flex-col items-center justify-center space-y-3 text-ink">
-        <Loader2 className="w-8 h-8 animate-spin text-brand" />
-        <p className="text-xs font-mono text-ink-muted">Loading notifications...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
@@ -153,7 +146,7 @@ export default function NotificationsList({ onSelectComplaint, onNotificationsUp
           <button
             onClick={handleMarkAllRead}
             disabled={markingAll}
-            className="px-4 py-2 bg-white text-ink border border-surface-border text-xs font-semibold rounded-lg hover:border-brand hover:text-brand transition flex items-center gap-1.5 shadow-subtle self-start sm:self-auto"
+            className="px-4 py-2 bg-white text-ink border border-surface-border text-xs font-semibold rounded-lg hover:border-brand hover:text-brand transition flex items-center gap-1.5 shadow-subtle self-start sm:self-auto cursor-pointer"
           >
             {markingAll ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -166,31 +159,18 @@ export default function NotificationsList({ onSelectComplaint, onNotificationsUp
       </div>
 
       {/* Error Alert */}
-      {error && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-          <button
-            onClick={fetchNotifications}
-            className="px-3 py-1 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700"
-          >
-            Retry
-          </button>
-        </div>
-      )}
+      {error && <ErrorState message={error} onRetry={fetchNotifications} />}
 
       {/* Notifications Panel */}
       <div className="bg-white rounded-2xl border border-surface-border p-6 shadow-card space-y-3">
-        {notifications.length === 0 ? (
-          <div className="py-16 text-center space-y-2">
-            <Bell className="w-8 h-8 text-gray-custom mx-auto opacity-40" />
-            <p className="text-sm font-semibold text-ink">No notifications yet</p>
-            <p className="text-xs text-ink-muted">
-              You will receive real-time updates when technicians are assigned or status changes.
-            </p>
-          </div>
+        {loading ? (
+          <TableSkeleton rows={4} cols={3} />
+        ) : notifications.length === 0 ? (
+          <EmptyState
+            icon={Bell}
+            title="No notifications yet"
+            message="You will receive real-time updates when technicians are assigned, status changes, or comments are added."
+          />
         ) : (
           <div className="divide-y divide-surface-border">
             {notifications.map((n) => (

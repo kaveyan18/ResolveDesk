@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
+import TableSkeleton from '../common/TableSkeleton';
+import EmptyState from '../common/EmptyState';
+import ErrorState from '../common/ErrorState';
 import {
   Wrench,
   Clock,
   CheckCircle,
   Activity,
   ArrowRight,
-  Loader2,
-  AlertCircle,
 } from 'lucide-react';
 
 export default function TechnicianDashboardView({ onOpenWorkView }) {
@@ -87,32 +88,6 @@ export default function TechnicianDashboardView({ onOpenWorkView }) {
     );
   };
 
-  if (loading) {
-    return (
-      <div className="py-24 flex flex-col items-center justify-center space-y-3 text-ink">
-        <Loader2 className="w-8 h-8 animate-spin text-brand" />
-        <p className="text-xs font-mono text-ink-muted">Loading assigned complaints queue...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-        <button
-          onClick={fetchAssigned}
-          className="px-3 py-1 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* PAGE HEADER */}
@@ -124,6 +99,8 @@ export default function TechnicianDashboardView({ onOpenWorkView }) {
           You have {complaints.length} complaint{complaints.length === 1 ? '' : 's'} assigned to your queue.
         </p>
       </div>
+
+      {error && <ErrorState message={error} onRetry={fetchAssigned} />}
 
       {/* 4 SUMMARY STAT CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -187,16 +164,18 @@ export default function TechnicianDashboardView({ onOpenWorkView }) {
           <span className="text-xs text-ink-muted font-mono">{complaints.length} tasks</span>
         </div>
 
-        {complaints.length === 0 ? (
-          <div className="py-12 text-center space-y-2">
-            <CheckCircle className="w-8 h-8 text-status-success mx-auto opacity-40" />
-            <p className="text-sm font-semibold text-ink">No assigned complaints</p>
-            <p className="text-xs text-ink-muted">All assigned tasks have been cleared!</p>
-          </div>
+        {loading ? (
+          <TableSkeleton rows={4} cols={6} />
+        ) : complaints.length === 0 ? (
+          <EmptyState
+            icon={CheckCircle}
+            title="No assigned complaints"
+            message="All assigned tasks in your queue have been completed!"
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
-              <thead>
+              <thead className="hidden md:table-header-group">
                 <tr className="border-b border-surface-border text-[11.5px] uppercase tracking-wider text-ink-muted font-semibold">
                   <th className="pb-3 px-3">ID</th>
                   <th className="pb-3 px-3">Title</th>
@@ -206,22 +185,37 @@ export default function TechnicianDashboardView({ onOpenWorkView }) {
                   <th className="pb-3 px-3 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-surface-border text-xs">
+              <tbody className="divide-y-0 md:divide-y divide-surface-border text-xs block md:table-row-group">
                 {complaints.map((c) => (
-                  <tr key={c._id} className="hover:bg-surface-bg/60 transition">
-                    <td className="py-3.5 px-3 font-mono text-ink-muted font-semibold">
+                  <tr
+                    key={c._id}
+                    className="block md:table-row p-4 border border-surface-border rounded-2xl mb-3 bg-white hover:bg-surface-bg/60 transition cursor-pointer shadow-xs md:shadow-none md:border-none md:mb-0 md:p-0"
+                  >
+                    <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3 font-mono text-ink-muted font-semibold">
+                      <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">ID</span>
                       {c.ticketId}
                     </td>
-                    <td className="py-3.5 px-3 font-semibold text-ink max-w-[220px] truncate">
-                      {c.title}
+                    <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3 font-semibold text-ink max-w-[220px] truncate">
+                      <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Title</span>
+                      <span>{c.title}</span>
                     </td>
-                    <td className="py-3.5 px-3 text-ink-muted">{c.location}</td>
-                    <td className="py-3.5 px-3">{renderPriority(c.priority)}</td>
-                    <td className="py-3.5 px-3">{renderBadge(c.status)}</td>
-                    <td className="py-3.5 px-3 text-right">
+                    <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3 text-ink-muted">
+                      <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Location</span>
+                      <span>{c.location}</span>
+                    </td>
+                    <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3">
+                      <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Priority</span>
+                      {renderPriority(c.priority)}
+                    </td>
+                    <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3">
+                      <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Status</span>
+                      {renderBadge(c.status)}
+                    </td>
+                    <td className="flex justify-between items-center py-2 md:table-cell md:py-3.5 md:px-3 md:text-right">
+                      <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Action</span>
                       <button
                         onClick={() => onOpenWorkView(c.ticketId || c._id)}
-                        className="px-3 py-1 bg-white border border-surface-border text-ink rounded-lg text-xs font-semibold hover:border-brand hover:text-brand transition shadow-subtle inline-flex items-center gap-1"
+                        className="px-3 py-1 bg-white border border-surface-border text-ink rounded-lg text-xs font-semibold hover:border-brand hover:text-brand transition shadow-subtle inline-flex items-center gap-1 cursor-pointer"
                       >
                         Open <ArrowRight className="w-3 h-3" />
                       </button>

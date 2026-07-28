@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
+import TableSkeleton from '../common/TableSkeleton';
+import EmptyState from '../common/EmptyState';
+import ErrorState from '../common/ErrorState';
 import {
   Users,
   Building,
   Clock,
   CheckCircle,
-  Loader2,
-  AlertCircle,
   Activity,
   Bell,
 } from 'lucide-react';
@@ -56,26 +57,12 @@ export default function AdminDashboardView({ onSelectComplaint }) {
 
   if (loading) {
     return (
-      <div className="py-24 flex flex-col items-center justify-center space-y-3 text-ink">
-        <Loader2 className="w-8 h-8 animate-spin text-brand" />
-        <p className="text-xs font-mono text-ink-muted">Loading system overview...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-          <span>{error}</span>
+      <div className="space-y-6 max-w-6xl mx-auto">
+        <div className="border-b border-surface-border pb-4">
+          <div className="h-7 w-48 bg-slate-200 rounded-md animate-pulse mb-2" />
+          <div className="h-4 w-64 bg-slate-200 rounded-md animate-pulse" />
         </div>
-        <button
-          onClick={fetchOverview}
-          className="px-3 py-1 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700"
-        >
-          Retry
-        </button>
+        <TableSkeleton rows={4} cols={4} />
       </div>
     );
   }
@@ -87,6 +74,8 @@ export default function AdminDashboardView({ onSelectComplaint }) {
         <h1 className="text-2xl font-bold font-display text-ink">System Overview</h1>
         <p className="text-sm text-ink-muted mt-0.5">All departments, all complaints.</p>
       </div>
+
+      {error && <ErrorState message={error} onRetry={fetchOverview} />}
 
       {/* 4 SUMMARY STAT CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -160,54 +149,49 @@ export default function AdminDashboardView({ onSelectComplaint }) {
             <span className="text-xs text-brand font-semibold">Past 6 Months</span>
           </div>
 
-          <div className="h-44 pt-4 flex items-end justify-between gap-3">
+          <div className="pt-4 flex items-end justify-between gap-3 h-48 px-2">
             {monthlyTrend.map((m, idx) => {
-              const heightPercent = Math.max((m.v / maxMonthlyVal) * 100, 10);
-              const isLatest = idx === monthlyTrend.length - 1;
-
+              const heightPercent = Math.round((m.v / maxMonthlyVal) * 100);
               return (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                  <span className="text-[10px] font-mono font-bold text-ink opacity-0 group-hover:opacity-100 transition">
+                <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
+                  <span className="text-[10.5px] font-mono font-bold text-brand opacity-0 group-hover:opacity-100 transition">
                     {m.v}
                   </span>
-                  <div
-                    style={{ height: `${heightPercent}%` }}
-                    className={`w-full max-w-[32px] rounded-t-md transition-all duration-300 shadow-subtle ${
-                      isLatest ? 'bg-brand-dark' : 'bg-brand hover:bg-brand-dark'
-                    }`}
-                  />
-                  <span className="text-[11px] font-medium text-ink-muted truncate">
-                    {m.l}
-                  </span>
+                  <div className="w-full max-w-[36px] bg-surface-bg rounded-t-xl overflow-hidden h-36 flex items-end p-1">
+                    <div
+                      style={{ height: `${heightPercent}%` }}
+                      className="w-full bg-brand rounded-t-lg transition-all duration-500 group-hover:bg-brand-dark"
+                    />
+                  </div>
+                  <span className="text-[11px] font-semibold text-ink-muted">{m.l}</span>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Department Comparison Bar Chart */}
+        {/* Department Comparison Horizontal Bars */}
         <div className="bg-white rounded-2xl border border-surface-border p-6 shadow-card space-y-4">
           <div className="flex items-center justify-between border-b border-surface-border pb-3">
             <h3 className="text-sm font-bold font-display text-ink">Department comparison</h3>
-            <span className="text-xs text-ink-muted font-mono">{deptComparison.length} depts</span>
+            <span className="text-xs text-ink-muted">Open Volume</span>
           </div>
 
-          <div className="h-44 pt-4 flex items-end justify-between gap-3">
+          <div className="space-y-3.5 pt-1">
             {deptComparison.map((d, idx) => {
-              const heightPercent = Math.max((d.v / maxDeptVal) * 100, 10);
-
+              const widthPercent = Math.round((d.v / maxDeptVal) * 100);
               return (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                  <span className="text-[10px] font-mono font-bold text-ink opacity-0 group-hover:opacity-100 transition">
-                    {d.v}
-                  </span>
-                  <div
-                    style={{ height: `${heightPercent}%`, backgroundColor: d.c || '#2A4FD1' }}
-                    className="w-full max-w-[32px] rounded-t-md hover:opacity-90 transition-all duration-300 shadow-subtle"
-                  />
-                  <span className="text-[11px] font-medium text-ink-muted truncate max-w-[48px]">
-                    {d.l}
-                  </span>
+                <div key={idx} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span className="text-ink">{d.l}</span>
+                    <span className="font-mono text-brand">{d.v} open</span>
+                  </div>
+                  <div className="w-full h-2.5 bg-surface-bg rounded-full overflow-hidden p-0.5 border border-surface-border">
+                    <div
+                      style={{ width: `${widthPercent}%` }}
+                      className="h-full bg-brand rounded-full transition-all duration-500"
+                    />
+                  </div>
                 </div>
               );
             })}
@@ -215,38 +199,36 @@ export default function AdminDashboardView({ onSelectComplaint }) {
         </div>
       </div>
 
-      {/* ROW 2: CATEGORIES DONUT + RECENT ACTIVITY FEED */}
+      {/* ROW 2: CATEGORY BREAKDOWN + RECENT ACTIVITY */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* Categories Donut Chart */}
+        {/* Category Breakdown Donut */}
         <div className="bg-white rounded-2xl border border-surface-border p-6 shadow-card space-y-4">
           <div className="flex items-center justify-between border-b border-surface-border pb-3">
-            <h3 className="text-sm font-bold font-display text-ink">Complaint categories</h3>
+            <h3 className="text-sm font-bold font-display text-ink">Category breakdown</h3>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 py-2">
-            <div className="relative w-32 h-32 flex items-center justify-center flex-shrink-0">
+          <div className="flex flex-col sm:flex-row items-center justify-around gap-6 pt-2">
+            <div className="relative w-40 h-40 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                 <path
-                  className="text-slate-100"
-                  strokeWidth="4"
-                  stroke="currentColor"
-                  fill="none"
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  fill="none"
+                  stroke="#E5E7F0"
+                  strokeWidth="3.8"
                 />
-                {categoryBreakdown.map((p, idx) => {
-                  const percent = Math.round((p.v / totalCatVal) * 100);
-                  const prevPercents = categoryBreakdown
+                {categoryBreakdown.map((cat, idx) => {
+                  const strokePercent = Math.round((cat.v / totalCatVal) * 100);
+                  const prevOffset = categoryBreakdown
                     .slice(0, idx)
-                    .reduce((sum, item) => sum + Math.round((item.v / totalCatVal) * 100), 0);
+                    .reduce((sum, c) => sum + Math.round((c.v / totalCatVal) * 100), 0);
 
                   return (
                     <path
                       key={idx}
-                      stroke={p.c}
-                      strokeWidth="4"
-                      strokeDasharray={`${percent}, 100`}
-                      strokeDashoffset={`-${prevPercents}`}
-                      strokeLinecap="round"
+                      strokeDasharray={`${strokePercent}, 100`}
+                      strokeDashoffset={-prevOffset}
+                      stroke={cat.c}
+                      strokeWidth="3.8"
                       fill="none"
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                       className="transition-all duration-500"
@@ -286,10 +268,11 @@ export default function AdminDashboardView({ onSelectComplaint }) {
           </div>
 
           {recentActivity.length === 0 ? (
-            <div className="py-10 text-center space-y-2 text-ink-muted">
-              <Bell className="w-6 h-6 opacity-40 mx-auto" />
-              <p className="text-xs">No recent activity recorded.</p>
-            </div>
+            <EmptyState
+              icon={Bell}
+              title="No recent activity"
+              message="System events and complaint updates will be logged here."
+            />
           ) : (
             <div className="space-y-3">
               {recentActivity.map((notif) => (

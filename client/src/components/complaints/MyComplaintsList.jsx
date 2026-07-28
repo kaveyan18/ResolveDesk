@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
+import TableSkeleton from '../common/TableSkeleton';
+import EmptyState from '../common/EmptyState';
+import ErrorState from '../common/ErrorState';
 import {
   Search,
   Filter,
-  Loader2,
-  AlertCircle,
+  FileQuestion,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -187,38 +189,28 @@ export default function MyComplaintsList({ onSelectComplaint }) {
         </div>
 
         {/* Error Alert */}
-        {error && (
-          <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-            <button
-              onClick={fetchComplaints}
-              className="px-3 py-1 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700"
-            >
-              Retry
-            </button>
-          </div>
-        )}
+        {error && <ErrorState message={error} onRetry={fetchComplaints} />}
 
         {/* Table Content */}
         {loading ? (
-          <div className="py-16 flex flex-col items-center justify-center space-y-3 text-ink">
-            <Loader2 className="w-7 h-7 animate-spin text-brand" />
-            <p className="text-xs font-mono text-ink-muted">Loading complaints list...</p>
-          </div>
+          <TableSkeleton rows={5} cols={6} />
         ) : complaints.length === 0 ? (
-          <div className="py-16 text-center space-y-2">
-            <p className="text-sm font-semibold text-ink">No complaints found</p>
-            <p className="text-xs text-ink-muted">
-              Try adjusting your search criteria or filter options.
-            </p>
-          </div>
+          <EmptyState
+            icon={FileQuestion}
+            title="No complaints found"
+            message="No complaints match your current search or filter criteria."
+            actionLabel={search || statusFilter !== 'All' || priorityFilter !== 'All' ? 'Reset Filters' : undefined}
+            onAction={() => {
+              setSearch('');
+              setStatusFilter('All');
+              setPriorityFilter('All');
+              setPage(1);
+            }}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
-              <thead>
+              <thead className="hidden md:table-header-group">
                 <tr className="border-b border-surface-border text-[11.5px] uppercase tracking-wider text-ink-muted font-semibold">
                   <th className="pb-3 px-3">ID</th>
                   <th className="pb-3 px-3">Title</th>
@@ -228,24 +220,36 @@ export default function MyComplaintsList({ onSelectComplaint }) {
                   <th className="pb-3 px-3 text-right">Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-surface-border text-xs">
+              <tbody className="divide-y-0 md:divide-y divide-surface-border text-xs block md:table-row-group">
                 {complaints.map((c) => (
                   <tr
                     key={c._id}
                     onClick={() => onSelectComplaint(c.ticketId || c._id)}
-                    className="hover:bg-surface-bg/60 transition cursor-pointer group"
+                    className="block md:table-row p-4 border border-surface-border rounded-2xl mb-3 bg-white hover:bg-surface-bg/60 transition cursor-pointer group shadow-xs md:shadow-none md:border-none md:mb-0 md:p-0"
                   >
-                    <td className="py-3.5 px-3 font-mono text-ink-muted">{c.ticketId}</td>
-                    <td className="py-3.5 px-3 font-semibold text-brand group-hover:underline">
-                      {c.title}
+                    <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3 font-mono text-ink-muted">
+                      <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">ID</span>
+                      {c.ticketId}
                     </td>
-                    <td className="py-3.5 px-3 text-ink-muted">
-                      {c.department?.name || c.category || 'General'}
+                    <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3 font-semibold text-brand group-hover:underline">
+                      <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Title</span>
+                      <span>{c.title}</span>
                     </td>
-                    <td className="py-3.5 px-3">{renderBadge(c.status)}</td>
-                    <td className="py-3.5 px-3">{renderPriority(c.priority)}</td>
-                    <td className="py-3.5 px-3 text-right text-ink-muted font-mono">
-                      {formatDate(c.createdAt)}
+                    <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3 text-ink-muted">
+                      <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Department</span>
+                      <span>{c.department?.name || c.category || 'General'}</span>
+                    </td>
+                    <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3">
+                      <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Status</span>
+                      {renderBadge(c.status)}
+                    </td>
+                    <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3">
+                      <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Priority</span>
+                      {renderPriority(c.priority)}
+                    </td>
+                    <td className="flex justify-between items-center py-2 md:table-cell md:py-3.5 md:px-3 md:text-right text-ink-muted font-mono">
+                      <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Date</span>
+                      <span>{formatDate(c.createdAt)}</span>
                     </td>
                   </tr>
                 ))}

@@ -9,6 +9,8 @@ import HeadStaffView from '../head/HeadStaffView';
 import ComplaintDetail from '../complaints/ComplaintDetail';
 import NotificationsList from '../notifications/NotificationsList';
 import NotificationDropdown from '../notifications/NotificationDropdown';
+import SettingsView from '../common/SettingsView';
+import MobileBottomNav from '../common/MobileBottomNav';
 import {
   LayoutDashboard,
   ListOrdered,
@@ -16,6 +18,7 @@ import {
   BarChart3,
   Users,
   Bell,
+  Settings,
   LogOut,
   Search,
 } from 'lucide-react';
@@ -47,10 +50,11 @@ export default function HeadDashboard() {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'complaints', label: 'Complaints', icon: ListOrdered },
-    { id: 'assign', label: 'Assign Tasks', icon: UserPlus },
+    { id: 'assign', label: 'Assign', icon: UserPlus },
     { id: 'reports', label: 'Reports', icon: BarChart3 },
     { id: 'staff', label: 'Staff', icon: Users },
-    { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadNotifications },
+    { id: 'notifications', label: 'Alerts', icon: Bell, badge: unreadNotifications },
+    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   const handleTabChange = (tabId) => {
@@ -66,16 +70,16 @@ export default function HeadDashboard() {
     setShowNotifDropdown(false);
   };
 
-  const handleOpenAssign = (complaint) => {
+  const handleStartAssign = (complaint) => {
     setAssigningComplaint(complaint);
     setSelectedComplaintId(null);
     setCurrentTab('assign');
   };
 
   return (
-    <div className="h-screen bg-surface-bg flex flex-col lg:flex-row text-ink font-sans overflow-hidden">
-      {/* FIXED SIDEBAR NAVIGATION */}
-      <aside className="w-full lg:w-64 bg-sidebar text-white p-5 flex flex-col justify-between flex-shrink-0 lg:h-screen lg:sticky lg:top-0 border-r border-white/5 z-20">
+    <div className="h-screen bg-surface-bg flex flex-col md:flex-row text-ink font-sans overflow-hidden">
+      {/* SIDEBAR NAVIGATION (COLLAPSED ON MOBILE < 760px) */}
+      <aside className="hidden md:flex w-64 bg-sidebar text-white p-5 flex-col justify-between flex-shrink-0 h-screen sticky top-0 border-r border-white/5 z-20">
         <div className="space-y-6">
           {/* Brand Mark */}
           <div className="flex items-center gap-2.5 px-2 py-1">
@@ -84,7 +88,7 @@ export default function HeadDashboard() {
           </div>
 
           <div className="text-[10.5px] uppercase tracking-wider font-semibold text-[#5C6488] px-2">
-            Dept. Head Menu
+            Dept Head Menu
           </div>
 
           {/* Nav Items */}
@@ -97,7 +101,7 @@ export default function HeadDashboard() {
                 <button
                   key={item.id}
                   onClick={() => handleTabChange(item.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition text-left ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition text-left cursor-pointer ${
                     isActive
                       ? 'bg-sidebar-soft text-white font-semibold shadow-sm'
                       : 'text-sidebar-text hover:bg-sidebar-soft hover:text-white'
@@ -121,19 +125,24 @@ export default function HeadDashboard() {
 
         {/* User Footer */}
         <div className="pt-4 mt-6 border-t border-white/10 space-y-3">
-          <div className="flex items-center gap-3 px-2 py-1">
-            <div className="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center font-display font-bold text-xs flex-shrink-0">
+          <div
+            onClick={() => handleTabChange('settings')}
+            className="flex items-center gap-3 px-2 py-1 cursor-pointer rounded-xl hover:bg-sidebar-soft transition group"
+          >
+            <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-display font-bold text-xs flex-shrink-0">
               {user?.name ? user.name.slice(0, 2).toUpperCase() : 'DH'}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-white truncate">{user?.name || 'Dept. Head'}</p>
+              <p className="text-xs font-semibold text-white truncate group-hover:text-brand-soft">
+                {user?.name || 'Department Head'}
+              </p>
               <p className="text-[11px] text-sidebar-text truncate">Department Head</p>
             </div>
           </div>
 
           <button
             onClick={logout}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-sidebar-text hover:bg-sidebar-soft hover:text-white transition"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-sidebar-text hover:bg-sidebar-soft hover:text-white transition cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
             <span>Log out</span>
@@ -142,10 +151,10 @@ export default function HeadDashboard() {
       </aside>
 
       {/* RIGHT SCROLLABLE CONTENT AREA */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto pb-16 md:pb-0">
         {/* Sticky Topbar */}
-        <header className="h-16 bg-white border-b border-surface-border flex items-center justify-between px-6 sticky top-0 z-10 flex-shrink-0 shadow-subtle">
-          <div className="flex items-center gap-3 bg-surface-bg border border-surface-border rounded-xl px-3 py-1.5 w-72 text-ink-muted">
+        <header className="h-16 bg-white border-b border-surface-border flex items-center justify-between px-4 md:px-6 sticky top-0 z-10 flex-shrink-0 shadow-subtle">
+          <div className="flex items-center gap-3 bg-surface-bg border border-surface-border rounded-xl px-3 py-1.5 w-48 sm:w-72 text-ink-muted">
             <Search className="w-4 h-4 opacity-50 flex-shrink-0" />
             <input
               placeholder="Search department complaints..."
@@ -157,7 +166,7 @@ export default function HeadDashboard() {
             {/* Topbar Bell Icon Button with Unread Badge */}
             <button
               onClick={() => setShowNotifDropdown(!showNotifDropdown)}
-              className={`relative p-2.5 rounded-xl border transition text-ink-muted hover:text-ink ${
+              className={`relative p-2.5 rounded-xl border transition text-ink-muted hover:text-ink cursor-pointer ${
                 showNotifDropdown
                   ? 'border-brand bg-brand-soft text-brand shadow-sm'
                   : 'border-surface-border hover:bg-surface-bg'
@@ -182,24 +191,31 @@ export default function HeadDashboard() {
               />
             )}
 
-            <div className="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center font-display font-bold text-xs">
+            <div
+              onClick={() => handleTabChange('settings')}
+              className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-display font-bold text-xs cursor-pointer hover:opacity-90 transition"
+              title="Settings"
+            >
               {user?.name ? user.name.slice(0, 2).toUpperCase() : 'DH'}
             </div>
           </div>
         </header>
 
         {/* Main Body View */}
-        <main className="p-6 lg:p-8 flex-1">
+        <main className="p-4 md:p-8 flex-1">
           {selectedComplaintId ? (
             <ComplaintDetail
               complaintId={selectedComplaintId}
               onBack={() => setSelectedComplaintId(null)}
             />
-          ) : assigningComplaint ? (
+          ) : currentTab === 'assign' ? (
             <HeadAssignView
               complaint={assigningComplaint}
-              onBack={() => setAssigningComplaint(null)}
               onAssigned={() => {
+                setAssigningComplaint(null);
+                setCurrentTab('complaints');
+              }}
+              onCancel={() => {
                 setAssigningComplaint(null);
                 setCurrentTab('complaints');
               }}
@@ -208,20 +224,14 @@ export default function HeadDashboard() {
             <>
               {currentTab === 'dashboard' && (
                 <HeadDashboardView
+                  onAssign={(cmp) => handleStartAssign(cmp)}
                   onSelectComplaint={(id) => handleSelectComplaint(id)}
                 />
               )}
 
               {currentTab === 'complaints' && (
                 <HeadComplaintsList
-                  onAssign={(complaint) => handleOpenAssign(complaint)}
-                  onSelectComplaint={(id) => handleSelectComplaint(id)}
-                />
-              )}
-
-              {currentTab === 'assign' && (
-                <HeadComplaintsList
-                  onAssign={(complaint) => handleOpenAssign(complaint)}
+                  onAssign={(cmp) => handleStartAssign(cmp)}
                   onSelectComplaint={(id) => handleSelectComplaint(id)}
                 />
               )}
@@ -236,9 +246,18 @@ export default function HeadDashboard() {
                   onNotificationsUpdated={(count) => setUnreadNotifications(count)}
                 />
               )}
+
+              {currentTab === 'settings' && <SettingsView />}
             </>
           )}
         </main>
+
+        {/* MOBILE BOTTOM NAVIGATION BAR (< 760px) */}
+        <MobileBottomNav
+          items={navItems}
+          currentTab={currentTab}
+          onTabChange={handleTabChange}
+        />
       </div>
     </div>
   );
