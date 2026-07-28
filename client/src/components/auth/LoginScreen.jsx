@@ -1,29 +1,27 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowLeft, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { api } from '../../services/api';
+import { Loader2, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
 
 export default function LoginScreen() {
-  const { login, forgotPassword, resetPassword } = useAuth();
+  const { login } = useAuth();
 
   // Mode: 'login' | 'forgot' | 'reset'
   const [mode, setMode] = useState('login');
 
-  // Form State
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
-
-  // Forgot / Reset Password State
+  // Form Fields State
+  const [email, setEmail] = useState('student@kct.ac.in');
+  const [password, setPassword] = useState('Password@123');
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [otpHint, setOtpHint] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
 
-  // UI State
+  // Status & Feedback
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Handle Login Submission
+  // 1. Handle Login Submit
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
@@ -31,56 +29,77 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      await login(email, password);
-    } catch (err) {
-      setErrorMessage(err.message || 'Failed to log in. Please check your credentials.');
-    } finally {
-      setLoading(false);
-    }
-  };
+      const res = await api.login(email.trim(), password);
 
-  // Handle Request OTP
-  const handleForgotSubmit = async (e) => {
-    e.preventDefault();
-    setErrorMessage('');
-    setSuccessMessage('');
-    setLoading(true);
-
-    try {
-      const res = await forgotPassword(email);
-      setSuccessMessage('OTP sent! Check your inbox or see the dev code below.');
-      if (res.otp) {
-        setOtpHint(res.otp);
+      if (res.status === 'success' && res.token && res.user) {
+        login(res.user, res.token);
+      } else {
+        setErrorMessage(res.message || 'Login failed. Please check your credentials.');
       }
-      setMode('reset');
     } catch (err) {
-      setErrorMessage(err.message || 'Failed to send OTP. Please check email address.');
+      console.error('Login error:', err);
+      setErrorMessage(err.message || 'Server error occurred during login.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Reset Password with OTP
-  const handleResetSubmit = async (e) => {
+  // 2. Handle Forgot Password Submit
+  const handleForgotPasswordSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
     setLoading(true);
 
     try {
-      await resetPassword(email, otp, newPassword);
-      setSuccessMessage('Password reset successfully! You can now log in.');
-      setMode('login');
-      setPassword('');
-      setOtp('');
-      setNewPassword('');
+      const res = await api.forgotPassword(email.trim());
+
+      if (res.status === 'success') {
+        setSuccessMessage(res.message);
+        setMode('reset');
+      } else {
+        setErrorMessage(res.message || 'Failed to send OTP.');
+      }
     } catch (err) {
-      setErrorMessage(err.message || 'Failed to reset password. Invalid or expired OTP.');
+      console.error('Forgot password error:', err);
+      setErrorMessage(err.message || 'Failed to request password reset OTP.');
     } finally {
       setLoading(false);
     }
   };
 
+  // 3. Handle Reset Password Submit
+  const handleResetPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+    setLoading(true);
+
+    try {
+      const res = await api.resetPassword(email.trim(), otp.trim(), newPassword);
+
+      if (res.status === 'success') {
+        setSuccessMessage('Password reset successfully! You can now log in with your new password.');
+        setPassword(newPassword);
+        setMode('login');
+      } else {
+        setErrorMessage(res.message || 'Failed to reset password.');
+      }
+    } catch (err) {
+      console.error('Reset password error:', err);
+      setErrorMessage(err.message || 'Failed to reset password.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Demo role picker helper
+  const handlePickDemoRole = (roleEmail) => {
+    setEmail(roleEmail);
+    setPassword('Password@123');
+    setErrorMessage('');
+    setSuccessMessage('');
+  };
 
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-surface-bg font-sans text-ink">
@@ -141,44 +160,42 @@ export default function LoginScreen() {
           </div>
         </div>
 
-        {/* Footer info */}
+        {/* Footer */}
         <div className="text-xs text-sidebar-text z-10">
-          © 2026 ResolveDesk · Campus Operations Platform
+          © {new Date().getFullYear()} ResolveDesk · Smart Campus Issue Tracking
         </div>
       </div>
 
-      {/* RIGHT FORM WRAP */}
-      <div className="flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-sm space-y-6">
-          {/* Success Banner */}
-          {successMessage && (
-            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p>{successMessage}</p>
-                {otpHint && (
-                  <p className="font-mono font-semibold bg-emerald-100 px-2 py-0.5 rounded text-emerald-900 inline-block">
-                    DEV OTP Code: {otpHint}
-                  </p>
-                )}
-              </div>
+      {/* RIGHT FORM PANEL */}
+      <div className="flex items-center justify-center p-6 sm:p-12 md:p-16">
+        <div className="w-full max-w-md space-y-6">
+          {/* Header Mobile Brand */}
+          <div className="flex items-center gap-2 lg:hidden mb-2">
+            <div className="w-2.5 h-2.5 rounded bg-brand shadow-[0_0_0_4px_rgba(42,79,209,0.25)]" />
+            <span className="font-display font-bold text-lg tracking-tight text-ink">ResolveDesk</span>
+          </div>
+
+          {/* Feedback Banners */}
+          {errorMessage && (
+            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-2.5 animate-fade-in">
+              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+              <span>{errorMessage}</span>
             </div>
           )}
 
-          {/* Error Banner */}
-          {errorMessage && (
-            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-start gap-2.5">
-              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
+          {successMessage && (
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5 animate-fade-in">
+              <CheckCircle2 className="w-4 h-4 text-status-success flex-shrink-0" />
+              <span>{successMessage}</span>
             </div>
           )}
 
           {/* 1. LOGIN MODE */}
           {mode === 'login' && (
-            <div>
-              <div className="space-y-1 mb-7">
+            <div className="space-y-6">
+              <div>
                 <h2 className="text-2xl font-bold font-display text-ink">Welcome back</h2>
-                <p className="text-sm text-ink-muted">Sign in to your ResolveDesk account.</p>
+                <p className="text-sm text-ink-muted mt-1">Sign in to your ResolveDesk account.</p>
               </div>
 
               <form onSubmit={handleLoginSubmit} className="space-y-4">
@@ -227,7 +244,7 @@ export default function LoginScreen() {
                       setSuccessMessage('');
                       setMode('forgot');
                     }}
-                    className="text-brand font-semibold hover:underline"
+                    className="text-brand font-semibold hover:underline cursor-pointer"
                   >
                     Forgot password?
                   </button>
@@ -236,13 +253,55 @@ export default function LoginScreen() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-2.5 px-4 bg-brand text-white font-semibold rounded-lg text-sm hover:bg-brand-dark transition flex items-center justify-center gap-2 shadow-sm"
+                  className="w-full py-2.5 px-4 bg-brand text-white font-semibold rounded-lg text-sm hover:bg-brand-dark transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                 >
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Log in'}
                 </button>
               </form>
 
+              {/* Prototype Demo Role Quick-Picker */}
+              <div className="pt-4 border-t border-surface-border space-y-2.5">
+                <p className="text-xs font-semibold text-ink-muted text-center uppercase tracking-wider">
+                  Preview as (demo)
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handlePickDemoRole('student@kct.ac.in')}
+                    className="p-2.5 border border-surface-border rounded-xl bg-white hover:border-brand hover:bg-brand-soft/40 text-left transition cursor-pointer group"
+                  >
+                    <b className="block text-xs text-ink group-hover:text-brand">Student</b>
+                    <span className="text-[10.5px] text-ink-muted block">Raise & track</span>
+                  </button>
 
+                  <button
+                    type="button"
+                    onClick={() => handlePickDemoRole('technician@kct.ac.in')}
+                    className="p-2.5 border border-surface-border rounded-xl bg-white hover:border-purple hover:bg-purple-soft/40 text-left transition cursor-pointer group"
+                  >
+                    <b className="block text-xs text-ink group-hover:text-purple">Technician</b>
+                    <span className="text-[10.5px] text-ink-muted block">Resolve tasks</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePickDemoRole('depthead@kct.ac.in')}
+                    className="p-2.5 border border-surface-border rounded-xl bg-white hover:border-amber-500 hover:bg-amber-50 text-left transition cursor-pointer group"
+                  >
+                    <b className="block text-xs text-ink group-hover:text-amber-800">Dept. Head</b>
+                    <span className="text-[10.5px] text-ink-muted block">Assign & review</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePickDemoRole('admin@kct.ac.in')}
+                    className="p-2.5 border border-surface-border rounded-xl bg-white hover:border-status-danger hover:bg-red-50 text-left transition cursor-pointer group"
+                  >
+                    <b className="block text-xs text-ink group-hover:text-status-danger">Admin</b>
+                    <span className="text-[10.5px] text-ink-muted block">Full control</span>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -256,19 +315,17 @@ export default function LoginScreen() {
                   setSuccessMessage('');
                   setMode('login');
                 }}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted hover:text-ink mb-4 transition"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted hover:text-ink mb-4 transition cursor-pointer"
               >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to Log in
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to login
               </button>
 
-              <div className="space-y-1 mb-6">
-                <h2 className="text-2xl font-bold font-display text-ink">Reset Password</h2>
-                <p className="text-sm text-ink-muted">
-                  Enter your registered email to receive a 6-digit verification code.
-                </p>
-              </div>
+              <h2 className="text-2xl font-bold font-display text-ink">Reset password</h2>
+              <p className="text-sm text-ink-muted mt-1">
+                Enter your college email to receive a 6-digit OTP code.
+              </p>
 
-              <form onSubmit={handleForgotSubmit} className="space-y-4">
+              <form onSubmit={handleForgotPasswordSubmit} className="space-y-4 mt-6">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-semibold uppercase tracking-wider text-ink-muted">
                     College Email
@@ -286,15 +343,15 @@ export default function LoginScreen() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-2.5 px-4 bg-brand text-white font-semibold rounded-lg text-sm hover:bg-brand-dark transition flex items-center justify-center gap-2 shadow-sm"
+                  className="w-full py-2.5 px-4 bg-brand text-white font-semibold rounded-lg text-sm hover:bg-brand-dark transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                 >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send Verification OTP'}
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send Reset OTP'}
                 </button>
               </form>
             </div>
           )}
 
-          {/* 3. RESET PASSWORD WITH OTP MODE */}
+          {/* 3. RESET PASSWORD MODE */}
           {mode === 'reset' && (
             <div>
               <button
@@ -304,19 +361,17 @@ export default function LoginScreen() {
                   setSuccessMessage('');
                   setMode('login');
                 }}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted hover:text-ink mb-4 transition"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted hover:text-ink mb-4 transition cursor-pointer"
               >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to Log in
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to login
               </button>
 
-              <div className="space-y-1 mb-6">
-                <h2 className="text-2xl font-bold font-display text-ink">Enter OTP & New Password</h2>
-                <p className="text-sm text-ink-muted">
-                  Check your email for the 6-digit code sent to <b className="text-ink">{email}</b>.
-                </p>
-              </div>
+              <h2 className="text-2xl font-bold font-display text-ink">Enter Reset OTP</h2>
+              <p className="text-sm text-ink-muted mt-1">
+                Enter the 6-digit OTP sent to <span className="font-semibold text-ink">{email}</span>.
+              </p>
 
-              <form onSubmit={handleResetSubmit} className="space-y-4">
+              <form onSubmit={handleResetPasswordSubmit} className="space-y-4 mt-6">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-semibold uppercase tracking-wider text-ink-muted">
                     6-Digit OTP Code
@@ -350,7 +405,7 @@ export default function LoginScreen() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-2.5 px-4 bg-brand text-white font-semibold rounded-lg text-sm hover:bg-brand-dark transition flex items-center justify-center gap-2 shadow-sm"
+                  className="w-full py-2.5 px-4 bg-brand text-white font-semibold rounded-lg text-sm hover:bg-brand-dark transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                 >
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm New Password'}
                 </button>
