@@ -63,13 +63,21 @@ const connectDB = async () => {
 
 connectDB();
 
-// Routes
+// Primary API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
+
+// Route aliases (for requests missing /api prefix)
+app.use('/auth', authRoutes);
+app.use('/complaints', complaintRoutes);
+app.use('/notifications', notificationRoutes);
+app.use('/departments', departmentRoutes);
+app.use('/reports', reportRoutes);
+app.use('/admin', adminRoutes);
 
 // Health Check Route
 app.get('/api/health', (req, res) => {
