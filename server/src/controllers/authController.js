@@ -2,6 +2,7 @@ const User = require('../models/User');
 require('../models/Department');
 const generateToken = require('../utils/generateToken');
 const { ROLES, ROLE_VALUES } = require('../constants/enums');
+const { sendPasswordResetOTP } = require('../utils/emailService');
 
 /**
  * @desc    Register a new user (Students auto-approved, Staff pending approval)
@@ -105,10 +106,10 @@ const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    if (!email || !password || typeof email !== 'string') {
       return res.status(400).json({
         status: 'fail',
-        message: 'Please provide email and password',
+        message: 'Please provide valid email and password',
       });
     }
 
@@ -156,6 +157,8 @@ const loginUser = async (req, res) => {
         phone: user.phone,
         skills: user.skills,
         avatar: user.avatar,
+        emailNotificationsEnabled: user.emailNotificationsEnabled,
+        pushNotificationsEnabled: user.pushNotificationsEnabled,
         isApproved: user.isApproved,
       },
     });
@@ -200,14 +203,20 @@ const forgotPassword = async (req, res) => {
 
     await user.save();
 
+    // Send real email with OTP code using configured SMTP credentials
+    await sendPasswordResetOTP({
+      recipientEmail: user.email,
+      recipientName: user.name,
+      otp,
+    });
+
     console.log(
-      `[ResolveDesk Auth] OTP generated for ${user.email}: ${otp} (Expires at ${expiresAt.toISOString()})`
+      `[ResolveDesk Auth] OTP generated and sent to email for ${user.email}: ${otp}`
     );
 
     return res.json({
       status: 'success',
-      message: `Password reset OTP generated successfully. Check server logs or use demo OTP: ${otp}`,
-      otpDemo: otp,
+      message: `A 6-digit verification code has been sent to ${user.email}. Please check your email inbox.`,
     });
   } catch (error) {
     return res.status(500).json({
@@ -251,38 +260,43 @@ const resetPassword = async (req, res) => {
       });
     }
 
+    if (!user.resetPasswordOTP || user.resetPasswordOTP !== otp) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Invalid OTP code',
+      });
+    }
+
     if (
-      !user.resetPasswordOTP ||
-      user.resetPasswordOTP !== otp ||
-      !user.resetPasswordOTPExpires ||
-      user.resetPasswordOTPExpires < new Date()
+      user.resetPasswordOTPExpires &&
+      new Date() > new Date(user.resetPasswordOTPExpires)
     ) {
       return res.status(400).json({
         status: 'fail',
-        message: 'Invalid or expired OTP',
+        message: 'OTP has expired. Please request a new password reset.',
       });
     }
 
     user.password = newPassword;
-    user.resetPasswordOTP = undefined;
-    user.resetPasswordOTPExpires = undefined;
+    user.resetPasswordOTP = null;
+    user.resetPasswordOTPExpires = null;
 
     await user.save();
 
     return res.json({
       status: 'success',
-      message: 'Password reset successfully. You can now log in with your new password.',
+      message: 'Password reset successfully. You can now login with your new password.',
     });
   } catch (error) {
     return res.status(500).json({
       status: 'error',
-      message: error.message || 'Server error during password reset',
+      message: error.message || 'Server error resetting password',
     });
   }
 };
 
 /**
- * @desc    Get current authenticated user profile
+ * @desc    Get current logged in user details
  * @route   GET /api/auth/me
  * @access  Private
  */
@@ -310,13 +324,19 @@ const getMe = async (req, res) => {
 };
 
 /**
- * @desc    Update current user profile (name, phone, avatar)
+ * @desc    Update current user profile (name, phone, avatar, preferences)
  * @route   PUT /api/auth/profile
  * @access  Private
  */
 const updateProfile = async (req, res) => {
   try {
-    const { name, phone, avatar } = req.body;
+    const {
+      name,
+      phone,
+      avatar,
+      emailNotificationsEnabled,
+      pushNotificationsEnabled,
+    } = req.body;
     const user = await User.findById(req.user._id);
 
     if (!user) {
@@ -329,6 +349,12 @@ const updateProfile = async (req, res) => {
     if (name) user.name = name.trim();
     if (phone !== undefined) user.phone = phone.trim();
     if (avatar !== undefined) user.avatar = avatar;
+    if (typeof emailNotificationsEnabled === 'boolean') {
+      user.emailNotificationsEnabled = emailNotificationsEnabled;
+    }
+    if (typeof pushNotificationsEnabled === 'boolean') {
+      user.pushNotificationsEnabled = pushNotificationsEnabled;
+    }
 
     await user.save();
     await user.populate('department');
@@ -345,6 +371,8 @@ const updateProfile = async (req, res) => {
         phone: user.phone,
         skills: user.skills,
         avatar: user.avatar,
+        emailNotificationsEnabled: user.emailNotificationsEnabled,
+        pushNotificationsEnabled: user.pushNotificationsEnabled,
         isApproved: user.isApproved,
       },
     });

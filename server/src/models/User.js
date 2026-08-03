@@ -61,6 +61,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    emailNotificationsEnabled: {
+      type: Boolean,
+      default: true,
+    },
+    pushNotificationsEnabled: {
+      type: Boolean,
+      default: true,
+    },
     resetPasswordOTP: {
       type: String,
       default: null,

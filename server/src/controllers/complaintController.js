@@ -11,6 +11,41 @@ const {
   COMPLAINT_STATUS_VALUES,
   NOTIFICATION_TYPE,
 } = require('../constants/enums');
+const {
+  sendComplaintStatusEmail,
+  sendAssignmentEmail,
+} = require('../utils/emailService');
+const { getIO } = require('../socket');
+
+const emitRealtimeNotification = (recipientId, title, message, extraData = {}) => {
+  try {
+    const io = getIO();
+    if (io) {
+      if (recipientId) {
+        io.emit('notification_received', {
+          recipientId: recipientId.toString(),
+          title,
+          message,
+          ...extraData,
+        });
+      }
+      io.emit('complaint_updated', {
+        title,
+        message,
+        ...extraData,
+      });
+      if (extraData.complaintId) {
+        io.to(`complaint_${extraData.complaintId}`).emit('complaint_updated', {
+          title,
+          message,
+          ...extraData,
+        });
+      }
+    }
+  } catch (err) {
+    // Socket might not be initialized in test runner
+  }
+};
 
 /**
  * @desc    Create a new complaint
@@ -46,12 +81,28 @@ const createComplaint = async (req, res) => {
       if (department.match(/^[0-9a-fA-F]{24}$/)) {
         departmentId = department;
       } else {
-        const foundDept = await Department.findOne({
+        const cleanDept = department.trim();
+        let foundDept = await Department.findOne({
           $or: [
-            { name: new RegExp(`^${department}$`, 'i') },
-            { code: new RegExp(`^${department}$`, 'i') },
+            { name: new RegExp(`^${cleanDept}$`, 'i') },
+            { code: new RegExp(`^${cleanDept}$`, 'i') },
           ],
         });
+        if (!foundDept) {
+          try {
+            const derivedCode = cleanDept.substring(0, 4).toUpperCase();
+            foundDept = await Department.create({
+              name: cleanDept,
+              code: derivedCode,
+              description: `${cleanDept} Department`,
+            });
+          } catch (e) {
+            // Ignore duplicate code error if concurrent creation occurs
+            foundDept = await Department.findOne({
+              name: new RegExp(`^${cleanDept}$`, 'i'),
+            });
+          }
+        }
         if (foundDept) {
           departmentId = foundDept._id;
         }
@@ -90,6 +141,14 @@ const createComplaint = async (req, res) => {
       { path: 'student', select: 'name email role phone' },
       { path: 'department', select: 'name code' },
     ]);
+
+    // Broadcast real-time notification to update all dashboards
+    emitRealtimeNotification(
+      null,
+      'New Complaint Registered',
+      `Complaint ${complaint.ticketId} has been created.`,
+      { complaintId: complaint._id.toString(), status: complaint.status }
+    );
 
     return res.status(201).json({
       status: 'success',
@@ -273,15 +332,21 @@ const getMyComplaints = async (req, res) => {
  */
 const getDepartmentComplaints = async (req, res) => {
   try {
-    let departmentId = req.user.department;
-    if (!departmentId && req.user.role === 'DepartmentHead') {
-      const dept = await Department.findOne({ head: req.user._id });
-      if (dept) departmentId = dept._id;
+    const filterQuery = {};
+
+    if (req.user.role !== 'Admin') {
+      let departmentId = req.user.department;
+      if (!departmentId && req.user.role === 'DepartmentHead') {
+        const dept = await Department.findOne({ head: req.user._id });
+        if (dept) departmentId = dept._id;
+      }
+      if (departmentId) {
+        filterQuery.department = departmentId;
+      }
     }
 
-    const filterQuery = {};
-    if (departmentId) {
-      filterQuery.department = departmentId;
+    if (req.query.department && req.query.department !== 'All') {
+      filterQuery.department = req.query.department;
     }
 
     if (req.query.status && req.query.status !== 'All') {
@@ -382,38 +447,94 @@ const assignComplaint = async (req, res) => {
     await complaint.save({ validateBeforeSave: false });
 
     await complaint.populate([
-      { path: 'student', select: 'name email role phone' },
+      {
+        path: 'student',
+        select:
+          'name email role phone emailNotificationsEnabled pushNotificationsEnabled',
+      },
       { path: 'department', select: 'name code' },
-      { path: 'assignedTechnician', select: 'name email phone avatar' },
+      {
+        path: 'assignedTechnician',
+        select:
+          'name email phone avatar emailNotificationsEnabled pushNotificationsEnabled',
+      },
     ]);
 
-    // Send server-side notification to Student
+    // Send server-side notification & Email to Student
     try {
       const studentId = complaint.student?._id || complaint.student || complaint.user;
       if (studentId) {
+        const notifTitle = `Technician assigned to ${complaint.ticketId || 'complaint'}`;
+        const notifMsg = `${technician.name} was assigned to resolve your complaint.`;
+
         await Notification.create({
           recipient: studentId,
           sender: req.user._id,
           complaint: complaint._id,
-          title: `Technician assigned to ${complaint.ticketId || 'complaint'}`,
-          message: `${technician.name} was assigned to resolve your complaint.`,
+          title: notifTitle,
+          message: notifMsg,
           type: NOTIFICATION_TYPE.COMPLAINT_ASSIGNED,
         });
+
+        emitRealtimeNotification(studentId, notifTitle, notifMsg, {
+          complaintId: complaint._id.toString(),
+          status: complaint.status,
+        });
+
+        if (
+          complaint.student?.email &&
+          complaint.student.emailNotificationsEnabled !== false
+        ) {
+          sendAssignmentEmail({
+            recipientEmail: complaint.student.email,
+            recipientName: complaint.student.name,
+            ticketId: complaint.ticketId,
+            title: complaint.title,
+            assignedStaffName: technician.name,
+            role: 'Student',
+            priority: complaint.priority,
+            location: complaint.location,
+          }).catch((e) => console.error('Email error:', e.message));
+        }
       }
     } catch (notifErr) {
       console.error('Failed to notify student of assignment:', notifErr.message);
     }
 
-    // Send server-side notification to Technician
+    // Send server-side notification & Email to Technician
     try {
+      const techNotifTitle = `New complaint assigned: ${complaint.ticketId}`;
+      const techNotifMsg = `You were assigned ${complaint.title} (${complaint.location}). Priority: ${complaint.priority}.`;
+
       await Notification.create({
         recipient: technician._id,
         sender: req.user._id,
         complaint: complaint._id,
-        title: `New complaint assigned: ${complaint.ticketId}`,
-        message: `You were assigned ${complaint.title} (${complaint.location}). Priority: ${complaint.priority}.`,
+        title: techNotifTitle,
+        message: techNotifMsg,
         type: NOTIFICATION_TYPE.COMPLAINT_ASSIGNED,
       });
+
+      emitRealtimeNotification(technician._id, techNotifTitle, techNotifMsg, {
+        complaintId: complaint._id.toString(),
+        status: complaint.status,
+      });
+
+      if (
+        technician.email &&
+        technician.emailNotificationsEnabled !== false
+      ) {
+        sendAssignmentEmail({
+          recipientEmail: technician.email,
+          recipientName: technician.name,
+          ticketId: complaint.ticketId,
+          title: complaint.title,
+          assignedStaffName: technician.name,
+          role: 'Technician',
+          priority: complaint.priority,
+          location: complaint.location,
+        }).catch((e) => console.error('Email error:', e.message));
+      }
     } catch (notifErr) {
       console.error('Failed to notify technician of assignment:', notifErr.message);
     }
@@ -474,7 +595,7 @@ const getAssignedComplaints = async (req, res) => {
       ]);
 
     // Calculate Average Resolution Time in hours
-    let avgResolutionTime = '5.2 hrs'; // Default fallback if no completed items yet
+    let avgResolutionTime = '0 hrs';
     if (completedComplaints.length > 0) {
       const totalHours = completedComplaints.reduce((sum, c) => {
         const diffMs = new Date(c.resolvedAt || c.updatedAt) - new Date(c.createdAt);
@@ -633,6 +754,36 @@ const updateComplaintStatus = async (req, res) => {
       });
     }
 
+    // Technician Status Rules:
+    // 1. Technicians cannot modify complaints that are already Resolved or Closed
+    // 2. Technicians can only advance status forward (Assigned -> In Progress -> Resolved)
+    if (req.user.role === 'Technician') {
+      if ([COMPLAINT_STATUS.RESOLVED, COMPLAINT_STATUS.CLOSED].includes(complaint.status)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: `Technicians cannot modify a ${complaint.status.toLowerCase()} complaint. Only Department Head or Admin can reopen or adjust resolved/closed complaints.`,
+        });
+      }
+
+      const STATUS_HIERARCHY = {
+        Pending: 1,
+        Assigned: 2,
+        'In Progress': 3,
+        Resolved: 4,
+        Closed: 5,
+      };
+
+      const currentLevel = STATUS_HIERARCHY[complaint.status] || 0;
+      const targetLevel = STATUS_HIERARCHY[status] || 0;
+
+      if (targetLevel < currentLevel) {
+        return res.status(400).json({
+          status: 'fail',
+          message: `Cannot move status backward from '${complaint.status}' to '${status}'. Status updates by staff must proceed in a forward direction.`,
+        });
+      }
+    }
+
     complaint.status = status;
 
     if (status === COMPLAINT_STATUS.RESOLVED && !complaint.resolvedAt) {
@@ -653,21 +804,53 @@ const updateComplaintStatus = async (req, res) => {
     await complaint.save();
 
     await complaint.populate([
-      { path: 'student', select: 'name email role phone' },
+      {
+        path: 'student',
+        select:
+          'name email role phone emailNotificationsEnabled pushNotificationsEnabled',
+      },
       { path: 'department', select: 'name code' },
-      { path: 'assignedTechnician', select: 'name email' },
+      {
+        path: 'assignedTechnician',
+        select: 'name email emailNotificationsEnabled pushNotificationsEnabled',
+      },
     ]);
 
-    // Trigger Notification for Student
+    // Trigger Notification & Email for Student
     try {
+      const statusTitle = `Status update on ${complaint.ticketId}`;
+      const statusMsg = `Your complaint status was updated to '${status}'.`;
+
       await Notification.create({
         recipient: complaint.student._id,
         sender: req.user._id,
         complaint: complaint._id,
-        title: `Status update on ${complaint.ticketId}`,
-        message: `Your complaint status was updated to '${status}'.`,
+        title: statusTitle,
+        message: statusMsg,
         type: NOTIFICATION_TYPE.COMPLAINT_STATUS,
       });
+
+      emitRealtimeNotification(complaint.student._id, statusTitle, statusMsg, {
+        complaintId: complaint._id.toString(),
+        status: complaint.status,
+      });
+
+      if (
+        complaint.student?.email &&
+        complaint.student.emailNotificationsEnabled !== false
+      ) {
+        sendComplaintStatusEmail({
+          recipientEmail: complaint.student.email,
+          recipientName: complaint.student.name,
+          ticketId: complaint.ticketId,
+          title: complaint.title,
+          status,
+          priority: complaint.priority,
+          location: complaint.location,
+          message: `Your complaint status has been updated to ${status}.`,
+          updatedBy: req.user.name || 'Staff Member',
+        }).catch((e) => console.error('Email error:', e.message));
+      }
     } catch (notifErr) {
       console.error('Failed to send status update notification:', notifErr.message);
     }
@@ -732,21 +915,53 @@ const completeComplaint = async (req, res) => {
     await complaint.save();
 
     await complaint.populate([
-      { path: 'student', select: 'name email role phone' },
+      {
+        path: 'student',
+        select:
+          'name email role phone emailNotificationsEnabled pushNotificationsEnabled',
+      },
       { path: 'department', select: 'name code' },
-      { path: 'assignedTechnician', select: 'name email' },
+      {
+        path: 'assignedTechnician',
+        select: 'name email emailNotificationsEnabled pushNotificationsEnabled',
+      },
     ]);
 
-    // Trigger Notification for Student
+    // Trigger Notification & Email for Student
     try {
+      const completionTitle = `Complaint ${complaint.ticketId} Marked Complete`;
+      const completionMsg = `${req.user.name} resolved your complaint. Please inspect and rate the service.`;
+
       await Notification.create({
         recipient: complaint.student._id,
         sender: req.user._id,
         complaint: complaint._id,
-        title: `Complaint ${complaint.ticketId} Marked Complete`,
-        message: `${req.user.name} resolved your complaint. Please inspect and rate the service.`,
+        title: completionTitle,
+        message: completionMsg,
         type: NOTIFICATION_TYPE.COMPLAINT_STATUS,
       });
+
+      emitRealtimeNotification(complaint.student._id, completionTitle, completionMsg, {
+        complaintId: complaint._id.toString(),
+        status: complaint.status,
+      });
+
+      if (
+        complaint.student?.email &&
+        complaint.student.emailNotificationsEnabled !== false
+      ) {
+        sendComplaintStatusEmail({
+          recipientEmail: complaint.student.email,
+          recipientName: complaint.student.name,
+          ticketId: complaint.ticketId,
+          title: complaint.title,
+          status: COMPLAINT_STATUS.RESOLVED,
+          priority: complaint.priority,
+          location: complaint.location,
+          message: completionMsg,
+          updatedBy: req.user.name || 'Technician',
+        }).catch((e) => console.error('Email error:', e.message));
+      }
     } catch (notifErr) {
       console.error('Failed to send completion notification:', notifErr.message);
     }
@@ -813,6 +1028,12 @@ const rateComplaint = async (req, res) => {
       complaint.feedback = feedback.trim();
     }
 
+    // Set status to Closed upon rating
+    complaint.status = COMPLAINT_STATUS.CLOSED;
+    if (!complaint.closedAt) {
+      complaint.closedAt = new Date();
+    }
+
     await complaint.save();
 
     await complaint.populate([
@@ -820,6 +1041,14 @@ const rateComplaint = async (req, res) => {
       { path: 'department', select: 'name code' },
       { path: 'assignedTechnician', select: 'name email' },
     ]);
+
+    // Broadcast real-time rating update
+    emitRealtimeNotification(
+      complaint.assignedTechnician?._id,
+      'New Rating Submitted',
+      `Rating ${complaint.rating}/5 stars submitted for complaint ${complaint.ticketId}`,
+      { complaintId: complaint._id.toString(), status: complaint.status }
+    );
 
     return res.json({
       status: 'success',
@@ -942,7 +1171,7 @@ const addComplaintComment = async (req, res) => {
 
     const createdComment = complaint.comments[complaint.comments.length - 1];
 
-    // Trigger server-side notification for participant
+    // Trigger server-side notification & Socket.IO events for participants
     try {
       const recipientId = isStudent
         ? complaint.assignedTechnician || complaint.assignedBy
@@ -956,6 +1185,21 @@ const addComplaintComment = async (req, res) => {
           title: `New message on ${complaint.ticketId}`,
           message: `${req.user.name}: "${message.trim()}"`,
           type: NOTIFICATION_TYPE.COMMENT_ADDED,
+        });
+      }
+
+      emitRealtimeNotification(
+        recipientId,
+        `New message on ${complaint.ticketId}`,
+        `${req.user.name}: "${message.trim()}"`,
+        { complaintId: complaint._id.toString(), comment: createdComment }
+      );
+
+      const io = getIO();
+      if (io) {
+        io.to(`complaint_${complaint._id}`).emit('new_message', {
+          complaintId: complaint._id.toString(),
+          comment: createdComment,
         });
       }
     } catch (notifErr) {

@@ -2,13 +2,115 @@ import { useState, useRef } from 'react';
 import { api } from '../../services/api';
 import { Upload, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
+const DEPARTMENT_CATEGORIES = {
+  'Hostel': [
+    'Room Maintenance',
+    'Water Supply',
+    'Electricity',
+    'WiFi',
+    'Mess Food Quality',
+    'Mess Hygiene',
+    'Housekeeping',
+    'Laundry',
+    'Security',
+    'Other',
+  ],
+  'Hostel Administration': [
+    'Room Maintenance',
+    'Water Supply',
+    'Electricity',
+    'WiFi',
+    'Mess Food Quality',
+    'Mess Hygiene',
+    'Housekeeping',
+    'Laundry',
+    'Security',
+    'Other',
+  ],
+  'Campus Facilities': [
+    'Classroom',
+    'Furniture',
+    'Electrical',
+    'Plumbing',
+    'Washroom',
+    'Projector',
+    'Air Conditioner',
+    'Lift',
+    'Cleanliness',
+    'Parking',
+    'Other',
+  ],
+  'IT Services': [
+    'Campus WiFi',
+    'ERP Login',
+    'Student Email',
+    'Computer Lab',
+    'Printer',
+    'Software Installation',
+    'Internet',
+    'Other',
+  ],
+  'Transport': [
+    'Bus Delay',
+    'Bus Breakdown',
+    'Driver Complaint',
+    'Route Issue',
+    'Bus Pass',
+    'Other',
+  ],
+  'Examination Cell': [
+    'Hall Ticket',
+    'Internal Marks',
+    'Result Issue',
+    'Revaluation',
+    'Exam Schedule',
+    'Other',
+  ],
+  'Library': [
+    'Book Availability',
+    'Digital Library',
+    'Fine Issue',
+    'Seating',
+    'Computer System',
+    'Library WiFi',
+    'Other',
+  ],
+  'Placement Cell': [
+    'Placement Registration',
+    'Company Registration',
+    'Interview Schedule',
+    'Placement Portal',
+    'Resume Verification',
+    'Internship',
+    'Other',
+  ],
+  'Accounts Office': [
+    'Tuition Fee',
+    'Hostel Fee',
+    'Scholarship',
+    'Fee Receipt',
+    'Refund',
+    'Other',
+  ],
+};
+
+const DEPARTMENTS = [
+  'Hostel',
+  'Campus Facilities',
+  'IT Services',
+  'Transport',
+  'Examination Cell',
+  'Library',
+  'Placement Cell',
+  'Accounts Office',
+];
+
 export default function RaiseComplaint({ onComplaintSubmitted }) {
-  const [department, setDepartment] = useState('Electrical');
-  const [category, setCategory] = useState('Repair');
+  const [department, setDepartment] = useState(DEPARTMENTS[0]);
+  const [category, setCategory] = useState(DEPARTMENT_CATEGORIES[DEPARTMENTS[0]][0]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
-  const [priority, setPriority] = useState('Medium');
   const [images, setImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
 
@@ -18,7 +120,12 @@ export default function RaiseComplaint({ onComplaintSubmitted }) {
 
   const fileInputRef = useRef(null);
 
-  const priorities = ['Low', 'Medium', 'High', 'Critical'];
+  // Handle department change & update category selection
+  const handleDepartmentChange = (newDept) => {
+    setDepartment(newDept);
+    const availableCategories = DEPARTMENT_CATEGORIES[newDept] || ['Other'];
+    setCategory(availableCategories[0]);
+  };
 
   // Handle Image selection
   const handleFileSelect = (files) => {
@@ -80,7 +187,7 @@ export default function RaiseComplaint({ onComplaintSubmitted }) {
       formData.append('title', title.trim());
       formData.append('description', description.trim());
       formData.append('location', location.trim());
-      formData.append('priority', priority);
+      formData.append('priority', 'Medium');
 
       images.forEach((file) => {
         formData.append('images', file);
@@ -96,7 +203,6 @@ export default function RaiseComplaint({ onComplaintSubmitted }) {
         setTitle('');
         setDescription('');
         setLocation('');
-        setPriority('Medium');
         setImages([]);
         setImagePreviews([]);
 
@@ -152,18 +258,18 @@ export default function RaiseComplaint({ onComplaintSubmitted }) {
                 </label>
                 <select
                   value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
+                  onChange={(e) => handleDepartmentChange(e.target.value)}
                   className="w-full px-3.5 py-2.5 border border-surface-border rounded-lg bg-white text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft transition"
                 >
-                  <option value="Electrical">Electrical</option>
-                  <option value="Plumbing">Plumbing</option>
-                  <option value="IT Services">IT Services</option>
-                  <option value="Facility">Facility</option>
-                  <option value="Other">Other</option>
+                  {DEPARTMENTS.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              {/* Category */}
+              {/* Category (Subcategories based on selected department) */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-ink-muted">
                   Category
@@ -173,10 +279,11 @@ export default function RaiseComplaint({ onComplaintSubmitted }) {
                   onChange={(e) => setCategory(e.target.value)}
                   className="w-full px-3.5 py-2.5 border border-surface-border rounded-lg bg-white text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft transition"
                 >
-                  <option value="Repair">Repair</option>
-                  <option value="Installation">Installation</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Complaint">Complaint</option>
+                  {(DEPARTMENT_CATEGORIES[department] || ['Other']).map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -215,47 +322,19 @@ export default function RaiseComplaint({ onComplaintSubmitted }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Location */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-muted">
-                  Location
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Block, Floor, Room no."
-                  className="w-full px-3.5 py-2.5 border border-surface-border rounded-lg bg-white text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft transition"
-                />
-              </div>
-
-              {/* Priority Picker */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-muted">
-                  Priority
-                </label>
-                <div className="flex gap-2">
-                  {priorities.map((p) => {
-                    const isSelected = priority === p;
-                    return (
-                      <button
-                        type="button"
-                        key={p}
-                        onClick={() => setPriority(p)}
-                        className={`flex-1 py-2 px-2 rounded-lg text-xs font-semibold transition border ${
-                          isSelected
-                            ? 'border-brand bg-brand-soft text-brand-dark shadow-sm'
-                            : 'border-surface-border bg-white text-ink hover:border-brand'
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+            {/* Location */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-ink-muted">
+                Location
+              </label>
+              <input
+                type="text"
+                required
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Block, Floor, Room no."
+                className="w-full px-3.5 py-2.5 border border-surface-border rounded-lg bg-white text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft transition"
+              />
             </div>
 
             {/* Upload Images Dropzone */}
@@ -346,7 +425,7 @@ export default function RaiseComplaint({ onComplaintSubmitted }) {
           <div className="text-xs text-ink-muted space-y-2.5 leading-relaxed">
             <p>• Be specific about the exact location.</p>
             <p>• Attach a photo — routing is 2x faster with one.</p>
-            <p>• Critical priority is reserved for safety issues.</p>
+            <p>• Priority will be evaluated and assigned by the department head.</p>
             <p>• You&apos;ll get a notification the moment a technician is assigned.</p>
           </div>
         </div>

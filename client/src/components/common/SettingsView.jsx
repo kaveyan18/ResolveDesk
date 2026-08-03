@@ -1,10 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
-import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  LogOut,
+  Building2,
+  ShieldCheck,
+  Briefcase,
+  Award,
+} from 'lucide-react';
 
 export default function SettingsView() {
-  const { user, login } = useAuth();
+  const { user, setUser, logout } = useAuth();
 
   // Profile Form State
   const [fullName, setFullName] = useState(user?.name || '');
@@ -17,8 +26,9 @@ export default function SettingsView() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   // Preference Toggles State
-  const [emailNotifs, setEmailNotifs] = useState(true);
-  const [pushNotifs, setPushNotifs] = useState(true);
+  const [emailNotifs, setEmailNotifs] = useState(
+    user?.emailNotificationsEnabled !== false
+  );
   const [darkTheme, setDarkTheme] = useState(() => {
     return document.documentElement.classList.contains('dark');
   });
@@ -32,8 +42,42 @@ export default function SettingsView() {
     if (user) {
       setFullName(user.name || '');
       setPhoneInfo(user.phone || '21CS0142');
+      setEmailNotifs(user.emailNotificationsEnabled !== false);
     }
   }, [user]);
+
+  // Format user role for display
+  const getRoleLabel = (role) => {
+    switch (role) {
+      case 'DepartmentHead':
+        return 'Department Head';
+      case 'Technician':
+        return 'Technician / Staff';
+      case 'Admin':
+        return 'System Administrator';
+      case 'Student':
+        return 'Student';
+      default:
+        return role || 'User';
+    }
+  };
+
+  // Format full position title
+  const getPositionTitle = () => {
+    const deptName = user?.department?.name || '';
+    if (user?.role === 'DepartmentHead') {
+      return deptName ? `${deptName} Head` : 'Department Head';
+    }
+    if (user?.role === 'Technician') {
+      return deptName ? `${deptName} Technician` : 'Technician';
+    }
+    if (user?.role === 'Admin') {
+      return 'System Administrator';
+    }
+    return 'Campus Student';
+  };
+
+
 
   // Dark Theme Toggle Effect
   const handleDarkThemeToggle = () => {
@@ -56,19 +100,15 @@ export default function SettingsView() {
     setErrorMsg(null);
 
     try {
-      // 1. Update Profile (Name & Phone)
-      if (fullName !== user?.name || phoneInfo !== user?.phone) {
-        const profileRes = await api.updateProfile({
-          name: fullName,
-          phone: phoneInfo,
-        });
+      // 1. Update Profile (Name, Phone & Notification Preferences)
+      const profileRes = await api.updateProfile({
+        name: fullName,
+        phone: phoneInfo,
+        emailNotificationsEnabled: emailNotifs,
+      });
 
-        if (profileRes.status === 'success' && profileRes.user) {
-          const token = localStorage.getItem('resolvedesk_token');
-          if (token) {
-            login(profileRes.user, token);
-          }
-        }
+      if (profileRes.status === 'success' && profileRes.user) {
+        setUser(profileRes.user);
       }
 
       // 2. Change Password if filled
@@ -138,6 +178,33 @@ export default function SettingsView() {
               Profile
             </h3>
 
+            {/* POSITION & ROLE CARD HEADER */}
+            <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-surface-bg border border-surface-border">
+              <div className="w-12 h-12 rounded-xl bg-brand text-white font-display font-bold text-base flex items-center justify-center shadow-md flex-shrink-0">
+                {user?.name ? user.name.slice(0, 2).toUpperCase() : 'RD'}
+              </div>
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-bold text-ink truncate">{user?.name}</span>
+                  <span className="px-2 py-0.5 rounded-md bg-brand-soft text-brand text-[10px] font-bold font-mono uppercase tracking-wide">
+                    {getPositionTitle()}
+                  </span>
+                </div>
+                <p className="text-xs text-ink-muted flex items-center gap-1.5 font-medium">
+                  <Building2 className="w-3.5 h-3.5 text-brand flex-shrink-0" />
+                  <span className="truncate">
+                    {user?.department?.name
+                      ? `${user.department.name} Department (${user.department.code || 'DEPT'})`
+                      : user?.role === 'Student'
+                      ? 'Campus Student'
+                      : user?.role === 'Admin'
+                      ? 'Central Administration'
+                      : 'General Department'}
+                  </span>
+                </p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
@@ -165,6 +232,40 @@ export default function SettingsView() {
                 />
               </div>
 
+              {/* SYSTEM ROLE (READ-ONLY) */}
+              <div className="space-y-1">
+                <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
+                  Role / Position
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    readOnly
+                    disabled
+                    value={getRoleLabel(user?.role)}
+                    className="w-full p-2.5 pl-8 border border-surface-border rounded-xl text-xs bg-slate-100 text-slate-700 font-semibold cursor-not-allowed"
+                  />
+                  <Briefcase className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3" />
+                </div>
+              </div>
+
+              {/* DEPARTMENT (READ-ONLY) */}
+              <div className="space-y-1">
+                <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
+                  Department
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    readOnly
+                    disabled
+                    value={user?.department?.name || (user?.role === 'Admin' ? 'All Departments' : 'Campus / General')}
+                    className="w-full p-2.5 pl-8 border border-surface-border rounded-xl text-xs bg-slate-100 text-slate-700 font-semibold cursor-not-allowed"
+                  />
+                  <Building2 className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3" />
+                </div>
+              </div>
+
               <div className="sm:col-span-2 space-y-1">
                 <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
                   College Email
@@ -177,6 +278,26 @@ export default function SettingsView() {
                   className="w-full p-2.5 border border-surface-border rounded-xl text-xs bg-slate-100 text-slate-500 font-mono cursor-not-allowed"
                 />
               </div>
+
+              {/* SKILLS & SPECIALTIES BADGES */}
+              {user?.skills && user.skills.length > 0 && (
+                <div className="sm:col-span-2 space-y-1.5 pt-1">
+                  <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
+                    Skills & Specialties
+                  </label>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {user.skills.map((skill, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2.5 py-1 rounded-lg bg-purple-soft text-purple text-xs font-semibold flex items-center gap-1 border border-purple-200"
+                      >
+                        <Award className="w-3 h-3 text-purple" />
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -270,27 +391,6 @@ export default function SettingsView() {
               </button>
             </div>
 
-            {/* Push Notifications */}
-            <div className="flex items-center justify-between pt-4">
-              <div>
-                <p className="text-xs font-bold text-ink">Push notifications</p>
-                <p className="text-[11px] text-ink-muted mt-0.5">Browser alerts for updates</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPushNotifs(!pushNotifs)}
-                className={`relative inline-flex h-[22px] w-[38px] flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
-                  pushNotifs ? 'bg-brand' : 'bg-slate-200 border border-slate-300'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out mt-[2px] ${
-                    pushNotifs ? 'ml-[18px]' : 'ml-[2px]'
-                  }`}
-                />
-              </button>
-            </div>
-
             {/* Dark Theme */}
             <div className="flex items-center justify-between pt-4">
               <div>
@@ -312,6 +412,20 @@ export default function SettingsView() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Session & Logout Section (Mobile & Desktop) */}
+        <div className="bg-white border border-surface-border rounded-2xl p-5 shadow-subtle">
+          <h2 className="text-sm font-bold text-ink mb-1">Session & Account</h2>
+          <p className="text-xs text-ink-muted mb-4">Log out of your ResolveDesk account on this device.</p>
+          <button
+            type="button"
+            onClick={logout}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-status-danger/10 text-status-danger hover:bg-status-danger hover:text-white font-semibold text-xs transition cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Log out</span>
+          </button>
         </div>
       </div>
     </div>

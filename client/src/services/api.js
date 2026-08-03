@@ -85,6 +85,12 @@ export const api = {
       body: JSON.stringify(userData),
     }),
 
+  bulkImportAdminUsers: (usersData) =>
+    request('/admin/users/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ users: usersData }),
+    }),
+
   updateAdminUser: (id, userData) =>
     request(`/admin/users/${encodeURIComponent(id)}`, {
       method: 'PUT',

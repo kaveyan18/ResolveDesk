@@ -1,62 +1,63 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
-        appBg: '#F4F5FA',
+        appBg: 'var(--bg)',
         surface: {
-          DEFAULT: '#FFFFFF',
-          bg: '#F4F5FA',
-          border: '#E5E7F0',
+          DEFAULT: 'var(--surface)',
+          bg: 'var(--bg)',
+          border: 'var(--border)',
         },
         sidebar: {
-          DEFAULT: '#12172B',
-          soft: '#1C2340',
-          text: '#98A0BE',
+          DEFAULT: 'var(--sidebar)',
+          soft: 'var(--sidebar-soft)',
+          text: 'var(--sidebar-text)',
         },
         ink: {
-          DEFAULT: '#12172B',
-          muted: '#666F8A',
+          DEFAULT: 'var(--ink)',
+          muted: 'var(--muted)',
         },
         border: {
-          DEFAULT: '#E5E7F0',
+          DEFAULT: 'var(--border)',
         },
         primary: {
-          DEFAULT: '#2A4FD1',
-          dark: '#1E3AA0',
-          soft: '#E9EDFC',
+          DEFAULT: 'var(--primary)',
+          dark: 'var(--primary-dark)',
+          soft: 'var(--primary-soft)',
         },
         success: {
-          DEFAULT: '#1F9D6C',
-          soft: '#E3F6ED',
+          DEFAULT: 'var(--success)',
+          soft: 'var(--success-soft)',
         },
         warning: {
-          DEFAULT: '#DE8F1F',
-          soft: '#FBF0DD',
+          DEFAULT: 'var(--warning)',
+          soft: 'var(--warning-soft)',
         },
         danger: {
-          DEFAULT: '#DB4C4C',
-          soft: '#FBE7E7',
+          DEFAULT: 'var(--danger)',
+          soft: 'var(--danger-soft)',
         },
         purple: {
-          DEFAULT: '#7C5CD6',
-          soft: '#EFEAFB',
+          DEFAULT: 'var(--purple)',
+          soft: 'var(--purple-soft)',
         },
         gray: {
-          DEFAULT: '#8992A6',
-          soft: '#EEF0F5',
+          DEFAULT: 'var(--gray)',
+          soft: 'var(--gray-soft)',
         },
         brand: {
-          DEFAULT: '#2A4FD1',
-          dark: '#1E3AA0',
-          soft: '#E9EDFC',
+          DEFAULT: 'var(--primary)',
+          dark: 'var(--primary-dark)',
+          soft: 'var(--primary-soft)',
         },
         status: {
-          success: '#1F9D6C',
-          warning: '#DE8F1F',
-          danger: '#DB4C4C',
-          purple: '#7C5CD6',
+          success: 'var(--success)',
+          warning: 'var(--warning)',
+          danger: 'var(--danger)',
+          purple: 'var(--purple)',
         },
       },
       borderRadius: {
@@ -70,10 +71,11 @@ export default {
         mono: ['"IBM Plex Mono"', 'monospace'],
       },
       boxShadow: {
-        card: '0 1px 2px rgba(18, 23, 43, 0.04), 0 8px 24px -12px rgba(18, 23, 43, 0.10)',
+        card: 'var(--shadow)',
         subtle: '0 1px 2px rgba(18, 23, 43, 0.04)',
       },
     },
   },
   plugins: [],
 };
+

@@ -19,6 +19,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.5",
     "multer": "^2.2.0",
+    "nodemailer": "^9.0.3",
     "resolvedesk-monorepo": "file:..",
     "socket.io": "^4.8.1"
   },

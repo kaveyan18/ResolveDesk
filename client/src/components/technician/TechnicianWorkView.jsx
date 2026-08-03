@@ -337,49 +337,55 @@ export default function TechnicianWorkView({ complaintId, onBack }) {
             </div>
 
             {/* Action Buttons Row */}
-            <div className="flex items-center gap-3 pt-3 border-t border-surface-border flex-wrap">
-              <div className="flex items-center gap-2">
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="px-3 py-2 border border-surface-border rounded-xl text-xs bg-white font-semibold text-ink focus:outline-none focus:border-brand"
-                >
-                  <option value="In Progress">In Progress</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Assigned">Assigned</option>
-                </select>
+            {['Resolved', 'Closed'].includes(complaint.status) ? (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span>This complaint is {complaint.status}. Status updates are locked for staff.</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 pt-3 border-t border-surface-border flex-wrap">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    className="px-3 py-2 border border-surface-border rounded-xl text-xs bg-white font-semibold text-ink focus:outline-none focus:border-brand"
+                  >
+                    <option value="In Progress">In Progress</option>
+                    {complaint.status === 'Assigned' && <option value="Assigned">Assigned</option>}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={handleUpdateStatus}
+                    disabled={updatingStatus}
+                    className="px-4 py-2 bg-white border border-surface-border text-ink rounded-xl text-xs font-semibold hover:border-brand hover:text-brand transition shadow-subtle flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  >
+                    {updatingStatus ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Clock className="w-3.5 h-3.5" />
+                    )}
+                    Update Status
+                  </button>
+                </div>
 
                 <button
                   type="button"
-                  onClick={handleUpdateStatus}
-                  disabled={updatingStatus}
-                  className="px-4 py-2 bg-white border border-surface-border text-ink rounded-xl text-xs font-semibold hover:border-brand hover:text-brand transition shadow-subtle flex items-center gap-1.5 disabled:opacity-50"
+                  onClick={handleMarkComplete}
+                  disabled={completing}
+                  className="px-5 py-2 bg-brand text-white rounded-xl text-xs font-bold hover:bg-brand-dark transition shadow-sm flex items-center gap-1.5 disabled:opacity-50 ml-auto cursor-pointer"
                 >
-                  {updatingStatus ? (
+                  {completing ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <Clock className="w-3.5 h-3.5" />
+                    <CheckCircle className="w-3.5 h-3.5" />
                   )}
-                  Update Status
+                  Mark as Complete
                 </button>
               </div>
-
-              <button
-                type="button"
-                onClick={handleMarkComplete}
-                disabled={completing || complaint.status === 'Resolved'}
-                className="px-5 py-2 bg-brand text-white rounded-xl text-xs font-bold hover:bg-brand-dark transition shadow-sm flex items-center gap-1.5 disabled:opacity-50 ml-auto"
-              >
-                {completing ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <CheckCircle className="w-3.5 h-3.5" />
-                )}
-                Mark as Complete
-              </button>
-            </div>
-          </div>
+            )}
         </div>
+      </div>
 
         {/* Right Column (1 Col): Progress Status Thread Timeline */}
         <div className="bg-white rounded-2xl border border-surface-border p-6 shadow-card space-y-4 sticky top-20">

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
+import { getSocket } from '../../services/socket';
 import TableSkeleton from '../common/TableSkeleton';
 import EmptyState from '../common/EmptyState';
 import ErrorState from '../common/ErrorState';
@@ -9,6 +10,10 @@ import {
   UserPlus,
   ArrowRight,
   FileQuestion,
+  CheckCircle2,
+  X,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 
 export default function HeadComplaintsList({ onAssign, onSelectComplaint }) {
@@ -16,6 +21,12 @@ export default function HeadComplaintsList({ onAssign, onSelectComplaint }) {
   const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Close Reason Modal State
+  const [closingComplaint, setClosingComplaint] = useState(null);
+  const [closeReason, setCloseReason] = useState('');
+  const [closeError, setCloseError] = useState(null);
+  const [submittingClose, setSubmittingClose] = useState(false);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('All');
@@ -65,6 +76,57 @@ export default function HeadComplaintsList({ onAssign, onSelectComplaint }) {
   useEffect(() => {
     fetchComplaints();
   }, [fetchComplaints]);
+
+  // Real-time socket update listener
+  useEffect(() => {
+    const socket = getSocket();
+    const handleUpdate = () => {
+      fetchComplaints();
+    };
+
+    socket.on('complaint_updated', handleUpdate);
+    socket.on('notification_received', handleUpdate);
+
+    return () => {
+      socket.off('complaint_updated', handleUpdate);
+      socket.off('notification_received', handleUpdate);
+    };
+  }, [fetchComplaints]);
+
+  const handleOpenCloseModal = (complaintItem) => {
+    setClosingComplaint(complaintItem);
+    setCloseReason('');
+    setCloseError(null);
+  };
+
+  const handleConfirmClose = async (e) => {
+    e.preventDefault();
+    if (!closeReason.trim()) {
+      setCloseError('Please provide a reason / note for closing this complaint.');
+      return;
+    }
+    if (!closingComplaint || submittingClose) return;
+
+    try {
+      setSubmittingClose(true);
+      setCloseError(null);
+      const res = await api.updateComplaintStatus(
+        closingComplaint._id,
+        'Closed',
+        closeReason.trim()
+      );
+      if (res.status === 'success') {
+        setClosingComplaint(null);
+        setCloseReason('');
+        fetchComplaints();
+      }
+    } catch (err) {
+      console.error('Failed to close complaint:', err);
+      setCloseError(err.message || 'Failed to close complaint.');
+    } finally {
+      setSubmittingClose(false);
+    }
+  };
 
   const renderBadge = (status) => {
     const statusStyles = {
@@ -230,7 +292,8 @@ export default function HeadComplaintsList({ onAssign, onSelectComplaint }) {
                   return (
                     <tr
                       key={c._id}
-                      className="block md:table-row p-4 border border-surface-border rounded-2xl mb-3 bg-white hover:bg-surface-bg/60 transition shadow-xs md:shadow-none md:border-none md:mb-0 md:p-0"
+                      onClick={() => onSelectComplaint && onSelectComplaint(c.ticketId || c._id)}
+                      className="block md:table-row p-4 border border-surface-border rounded-2xl mb-3 bg-white hover:bg-surface-bg/60 transition cursor-pointer shadow-xs md:shadow-none md:border-none md:mb-0 md:p-0"
                     >
                       <td className="flex justify-between items-center py-2 border-b border-dashed border-surface-border md:table-cell md:border-b-none md:py-3.5 md:px-3 font-mono text-brand font-semibold">
                         <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">ID</span>
@@ -254,21 +317,43 @@ export default function HeadComplaintsList({ onAssign, onSelectComplaint }) {
                       </td>
                       <td className="flex justify-between items-center py-2 md:table-cell md:py-3.5 md:px-3 md:text-right">
                         <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Action</span>
-                        {isUnassignedOrPending ? (
+                        <div className="flex items-center gap-1.5 justify-end">
+                          {isUnassignedOrPending && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onAssign && onAssign(c);
+                              }}
+                              className="px-3 py-1.5 bg-brand text-white rounded-lg text-xs font-semibold hover:bg-brand-dark transition shadow-sm inline-flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <UserPlus className="w-3.5 h-3.5" /> Assign
+                            </button>
+                          )}
+                          {c.status !== 'Closed' && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenCloseModal(c);
+                              }}
+                              className="px-2.5 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1 cursor-pointer"
+                              title="Close complaint"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Close
+                            </button>
+                          )}
                           <button
-                            onClick={() => onAssign && onAssign(c)}
-                            className="px-3.5 py-1.5 bg-brand text-white rounded-lg text-xs font-semibold hover:bg-brand-dark transition shadow-sm inline-flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <UserPlus className="w-3.5 h-3.5" /> Assign
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => onSelectComplaint && onSelectComplaint(c.ticketId || c._id)}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectComplaint && onSelectComplaint(c.ticketId || c._id);
+                            }}
                             className="px-3 py-1.5 bg-white border border-surface-border text-ink rounded-lg text-xs font-semibold hover:border-brand hover:text-brand transition shadow-subtle inline-flex items-center gap-1 cursor-pointer"
                           >
                             View <ArrowRight className="w-3 h-3" />
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -278,6 +363,74 @@ export default function HeadComplaintsList({ onAssign, onSelectComplaint }) {
           </div>
         )}
       </div>
+
+      {/* CLOSE COMPLAINT REASON MODAL */}
+      {closingComplaint && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-surface-border p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-surface-border pb-3">
+              <h3 className="text-base font-bold font-display text-ink flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-slate-700" />
+                Reason for Closing Complaint
+              </h3>
+              <button
+                type="button"
+                onClick={() => setClosingComplaint(null)}
+                className="text-ink-muted hover:text-ink transition p-1 rounded-lg hover:bg-surface-bg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmClose} className="space-y-4">
+              <p className="text-xs text-ink-muted leading-relaxed">
+                Please state the official reason or resolution note for closing ticket <b className="font-mono text-ink">{closingComplaint.ticketId}</b>.
+              </p>
+
+              {closeError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                  <span>{closeError}</span>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
+                  Closing Reason / Note <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={closeReason}
+                  onChange={(e) => {
+                    setCloseReason(e.target.value);
+                    if (closeError) setCloseError(null);
+                  }}
+                  placeholder="E.g. Issue resolved on site and verified with student."
+                  className="w-full p-3 border border-surface-border rounded-xl text-xs bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft transition"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setClosingComplaint(null)}
+                  className="px-4 py-2 border border-surface-border text-ink rounded-xl text-xs font-semibold hover:bg-surface-bg transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingClose}
+                  className="px-5 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-900 transition shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {submittingClose ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Confirm Close'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

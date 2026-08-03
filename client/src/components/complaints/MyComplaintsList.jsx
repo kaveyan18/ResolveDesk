@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
+import { getSocket } from '../../services/socket';
 import TableSkeleton from '../common/TableSkeleton';
 import EmptyState from '../common/EmptyState';
 import ErrorState from '../common/ErrorState';
@@ -62,6 +63,22 @@ export default function MyComplaintsList({ onSelectComplaint }) {
 
   useEffect(() => {
     fetchComplaints();
+  }, [fetchComplaints]);
+
+  // Real-time socket updates listener
+  useEffect(() => {
+    const socket = getSocket();
+    const handleUpdate = () => {
+      fetchComplaints();
+    };
+
+    socket.on('complaint_updated', handleUpdate);
+    socket.on('notification_received', handleUpdate);
+
+    return () => {
+      socket.off('complaint_updated', handleUpdate);
+      socket.off('notification_received', handleUpdate);
+    };
   }, [fetchComplaints]);
 
   // Status Badge Component

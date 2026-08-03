@@ -1,24 +1,35 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
+import { getSocket } from '../../services/socket';
 import StatusThreadTimeline from '../common/StatusThreadTimeline';
 import FloatingChatWidget from '../common/FloatingChatWidget';
 import {
   ArrowLeft,
   Download,
-  Edit,
-  Trash2,
   Loader2,
   AlertCircle,
   FileImage,
   Star,
   CheckCircle,
+  CheckCircle2,
+  XCircle,
+  ShieldCheck,
   MessageSquare,
+  X,
 } from 'lucide-react';
 
 export default function ComplaintDetail({ complaintId, onBack }) {
+  const { user } = useAuth();
   const [complaint, setComplaint] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  // Status reason modal state
+  const [statusModalTarget, setStatusModalTarget] = useState(null);
+  const [statusReason, setStatusReason] = useState('');
+  const [statusError, setStatusError] = useState(null);
 
   // Rating state
   const [selectedRating, setSelectedRating] = useState(5);
@@ -52,6 +63,24 @@ export default function ComplaintDetail({ complaintId, onBack }) {
   useEffect(() => {
     fetchDetail();
   }, [fetchDetail]);
+
+  // Real-time socket update listener
+  useEffect(() => {
+    const socket = getSocket();
+    const handleUpdate = (data) => {
+      if (!data || !data.complaintId || data.complaintId === complaintId || (complaint && data.complaintId === complaint._id)) {
+        fetchDetail();
+      }
+    };
+
+    socket.on('complaint_updated', handleUpdate);
+    socket.on('notification_received', handleUpdate);
+
+    return () => {
+      socket.off('complaint_updated', handleUpdate);
+      socket.off('notification_received', handleUpdate);
+    };
+  }, [fetchDetail, complaintId, complaint]);
 
   const handleRatingSubmit = async (e) => {
     e.preventDefault();
@@ -160,7 +189,42 @@ export default function ComplaintDetail({ complaintId, onBack }) {
     );
   }
 
-  const isResolvedOrClosed = ['Resolved', 'Closed'].includes(complaint.status);
+  const handleOpenStatusModal = (targetStatus) => {
+    setStatusModalTarget(targetStatus);
+    setStatusReason('');
+    setStatusError(null);
+  };
+
+  const handleConfirmStatusChange = async (e) => {
+    e.preventDefault();
+    if (!statusReason.trim()) {
+      setStatusError('Please provide a reason or note for this status update.');
+      return;
+    }
+    if (!complaint || !statusModalTarget || updatingStatus) return;
+
+    try {
+      setUpdatingStatus(true);
+      setStatusError(null);
+      const res = await api.updateComplaintStatus(
+        complaint._id,
+        statusModalTarget,
+        statusReason.trim()
+      );
+      if (res.status === 'success' && res.data?.complaint) {
+        setComplaint(res.data.complaint);
+        setStatusModalTarget(null);
+        setStatusReason('');
+      }
+    } catch (err) {
+      console.error('Failed to update complaint status:', err);
+      setStatusError(err.message || 'Failed to update status.');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const isResolvedOrClosed = ['Resolved', 'Closed'].includes(complaint?.status);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto relative pb-10">
@@ -193,22 +257,48 @@ export default function ComplaintDetail({ complaintId, onBack }) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {(user?.role === 'DepartmentHead' || user?.role === 'Admin') && complaint.status !== 'Closed' && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleOpenStatusModal('Closed')}
+                disabled={updatingStatus}
+                className="px-3.5 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold hover:bg-slate-900 transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Close Complaint
+              </button>
+
+              {complaint.status !== 'Resolved' && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenStatusModal('Resolved')}
+                  disabled={updatingStatus}
+                  className="px-3 py-1.5 bg-emerald-50 text-status-success border border-emerald-200 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" /> Mark Resolved
+                </button>
+              )}
+
+              {complaint.status !== 'Rejected' && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenStatusModal('Rejected')}
+                  disabled={updatingStatus}
+                  className="px-3 py-1.5 bg-red-50 text-status-danger border border-red-200 rounded-lg text-xs font-semibold hover:bg-red-100 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <XCircle className="w-3.5 h-3.5" /> Reject
+                </button>
+              )}
+            </>
+          )}
+
           <button
+            type="button"
             onClick={() => window.print()}
-            className="px-3 py-1.5 bg-white border border-surface-border text-ink rounded-lg text-xs font-semibold hover:border-brand hover:text-brand transition flex items-center gap-1.5 shadow-subtle"
+            className="px-3 py-1.5 bg-white border border-surface-border text-ink rounded-lg text-xs font-semibold hover:border-brand hover:text-brand transition flex items-center gap-1.5 shadow-subtle cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" /> Download PDF
           </button>
-          {complaint.status === 'Pending' && (
-            <>
-              <button className="px-3 py-1.5 bg-white border border-surface-border text-ink rounded-lg text-xs font-semibold hover:border-brand hover:text-brand transition flex items-center gap-1.5 shadow-subtle">
-                <Edit className="w-3.5 h-3.5" /> Edit
-              </button>
-              <button className="px-3 py-1.5 bg-red-50 border border-red-200 text-status-danger rounded-lg text-xs font-semibold hover:bg-red-100 transition flex items-center gap-1.5">
-                <Trash2 className="w-3.5 h-3.5" /> Cancel
-              </button>
-            </>
-          )}
         </div>
       </div>
 
@@ -296,7 +386,7 @@ export default function ComplaintDetail({ complaintId, onBack }) {
           </div>
 
           {/* RATING CARD FOR RESOLVED COMPLAINTS */}
-          {isResolvedOrClosed && (
+          {isResolvedOrClosed && (complaint.rating || user?.role === 'Student') && (
             <div className="bg-white rounded-2xl border border-surface-border p-6 shadow-card space-y-4">
               <div className="flex items-center justify-between border-b border-surface-border pb-3">
                 <h3 className="text-sm font-bold font-display text-ink flex items-center gap-2">
@@ -313,7 +403,7 @@ export default function ComplaintDetail({ complaintId, onBack }) {
               {complaint.rating ? (
                 <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-200 space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-ink">Your Rating:</span>
+                    <span className="text-xs font-semibold text-ink">Student Rating:</span>
                     <div className="flex items-center gap-1 text-amber-400">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <Star
@@ -337,7 +427,7 @@ export default function ComplaintDetail({ complaintId, onBack }) {
                     </p>
                   )}
                 </div>
-              ) : (
+              ) : user?.role === 'Student' ? (
                 <form onSubmit={handleRatingSubmit} className="space-y-4">
                   <p className="text-xs text-ink-muted">
                     How was your resolution experience? Please rate the technician&apos;s speed and work quality.
@@ -396,7 +486,7 @@ export default function ComplaintDetail({ complaintId, onBack }) {
                     )}
                   </button>
                 </form>
-              )}
+              ) : null}
             </div>
           )}
         </div>
@@ -411,6 +501,88 @@ export default function ComplaintDetail({ complaintId, onBack }) {
           <StatusThreadTimeline status={complaint.status} complaint={complaint} />
         </div>
       </div>
+
+      {/* STATUS REASON CONFIRMATION MODAL */}
+      {statusModalTarget && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-surface-border p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-surface-border pb-3">
+              <h3 className="text-base font-bold font-display text-ink flex items-center gap-2">
+                {statusModalTarget === 'Closed' && <CheckCircle2 className="w-5 h-5 text-slate-700" />}
+                {statusModalTarget === 'Resolved' && <CheckCircle className="w-5 h-5 text-emerald-600" />}
+                {statusModalTarget === 'Rejected' && <XCircle className="w-5 h-5 text-red-600" />}
+                Reason for {statusModalTarget === 'Closed' ? 'Closing' : statusModalTarget === 'Resolved' ? 'Resolving' : 'Rejecting'} Complaint
+              </h3>
+              <button
+                type="button"
+                onClick={() => setStatusModalTarget(null)}
+                className="text-ink-muted hover:text-ink transition p-1 rounded-lg hover:bg-surface-bg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmStatusChange} className="space-y-4">
+              <p className="text-xs text-ink-muted leading-relaxed">
+                Please state the official reason or resolution note for changing ticket <b className="font-mono text-ink">{complaint.ticketId}</b> to <span className="font-semibold text-brand">{statusModalTarget}</span>.
+              </p>
+
+              {statusError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                  <span>{statusError}</span>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="block text-[11px] uppercase tracking-wider text-ink-muted font-semibold">
+                  Reason / Resolution Note <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={statusReason}
+                  onChange={(e) => {
+                    setStatusReason(e.target.value);
+                    if (statusError) setStatusError(null);
+                  }}
+                  placeholder={`E.g. ${
+                    statusModalTarget === 'Closed'
+                      ? 'Work verified on site by hostel manager.'
+                      : statusModalTarget === 'Rejected'
+                      ? 'Duplicate request already logged under #CMP-104.'
+                      : 'Technician repaired electrical wiring.'
+                  }`}
+                  className="w-full p-3 border border-surface-border rounded-xl text-xs bg-surface-bg/50 focus:bg-white focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft transition"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setStatusModalTarget(null)}
+                  className="px-4 py-2 border border-surface-border text-ink rounded-xl text-xs font-semibold hover:bg-surface-bg transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updatingStatus}
+                  className={`px-5 py-2 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                    statusModalTarget === 'Rejected'
+                      ? 'bg-status-danger hover:bg-red-700'
+                      : statusModalTarget === 'Resolved'
+                      ? 'bg-status-success hover:bg-emerald-700'
+                      : 'bg-slate-800 hover:bg-slate-900'
+                  }`}
+                >
+                  {updatingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Confirm'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* FLOATING BOTTOM-RIGHT CHAT WIDGET */}
       <FloatingChatWidget

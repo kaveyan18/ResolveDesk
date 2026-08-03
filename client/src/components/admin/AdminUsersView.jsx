@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
+import { getSocket } from '../../services/socket';
 import TableSkeleton from '../common/TableSkeleton';
 import EmptyState from '../common/EmptyState';
 import ErrorState from '../common/ErrorState';
+import BulkUserImportModal from './BulkUserImportModal';
 import {
   UserPlus,
   Search,
@@ -15,6 +17,7 @@ import {
   Loader2,
   X,
   Users,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 export default function AdminUsersView() {
@@ -30,6 +33,7 @@ export default function AdminUsersView() {
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -81,6 +85,20 @@ export default function AdminUsersView() {
 
   useEffect(() => {
     fetchUsers();
+  }, [fetchUsers]);
+
+  // Real-time socket update listener
+  useEffect(() => {
+    const socket = getSocket();
+    const handleUpdate = () => {
+      fetchUsers();
+    };
+
+    socket.on('user_updated', handleUpdate);
+
+    return () => {
+      socket.off('user_updated', handleUpdate);
+    };
   }, [fetchUsers]);
 
   // Actions
@@ -208,12 +226,20 @@ export default function AdminUsersView() {
           <p className="text-sm text-ink-muted mt-0.5">{users.length} registered users.</p>
         </div>
 
-        <button
-          onClick={handleOpenCreateModal}
-          className="px-4 py-2.5 bg-brand text-white rounded-xl text-xs font-bold hover:bg-brand-dark transition shadow-sm flex items-center gap-2 cursor-pointer"
-        >
-          <UserPlus className="w-4 h-4" /> Create User
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setShowBulkModal(true)}
+            className="px-4 py-2.5 bg-brand-soft text-brand border border-brand/20 rounded-xl text-xs font-bold hover:bg-brand hover:text-white transition shadow-sm flex items-center gap-2 cursor-pointer"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> Bulk Import CSV
+          </button>
+          <button
+            onClick={handleOpenCreateModal}
+            className="px-4 py-2.5 bg-brand text-white rounded-xl text-xs font-bold hover:bg-brand-dark transition shadow-sm flex items-center gap-2 cursor-pointer"
+          >
+            <UserPlus className="w-4 h-4" /> Create User
+          </button>
+        </div>
       </div>
 
       {/* TOOLBAR & FILTERS */}
@@ -490,6 +516,16 @@ export default function AdminUsersView() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* BULK CSV IMPORT MODAL */}
+      {showBulkModal && (
+        <BulkUserImportModal
+          onClose={() => setShowBulkModal(false)}
+          onSuccess={() => {
+            fetchUsers();
+          }}
+        />
       )}
     </div>
   );

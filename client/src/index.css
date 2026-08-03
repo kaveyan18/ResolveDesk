@@ -32,6 +32,32 @@
   --shadow: 0 1px 2px rgba(18, 23, 43, 0.04), 0 8px 24px -12px rgba(18, 23, 43, 0.10);
 }
 
+.dark {
+  color-scheme: dark;
+  --bg: #0B0F19;
+  --surface: #151D30;
+  --sidebar: #090C15;
+  --sidebar-soft: #101625;
+  --sidebar-text: #98A0BE;
+  --ink: #F1F5F9;
+  --muted: #94A3B8;
+  --border: #26314D;
+  --primary: #3B82F6;
+  --primary-dark: #2563EB;
+  --primary-soft: #1E293B;
+  --success: #10B981;
+  --success-soft: #064E3B;
+  --warning: #F59E0B;
+  --warning-soft: #78350F;
+  --danger: #EF4444;
+  --danger-soft: #7F1D1D;
+  --purple: #8B5CF6;
+  --purple-soft: #4C1D95;
+  --gray: #94A3B8;
+  --gray-soft: #1E293B;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+}
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -53,3 +79,48 @@
     font-family: var(--font-mono);
   }
 }
+
+/* Dark mode fallback utility overrides */
+.dark body {
+  background-color: var(--bg);
+  color: var(--ink);
+}
+
+.dark .bg-white {
+  background-color: var(--surface) !important;
+}
+
+.dark .bg-surface-bg {
+  background-color: var(--bg) !important;
+}
+
+.dark .bg-appBg {
+  background-color: var(--bg) !important;
+}
+
+.dark .text-ink {
+  color: var(--ink) !important;
+}
+
+.dark .text-ink-muted {
+  color: var(--muted) !important;
+}
+
+.dark .border-surface-border,
+.dark .border-border {
+  border-color: var(--border) !important;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #0B0F19 !important;
+  color: #F1F5F9 !important;
+  border-color: #26314D !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748B !important;
+}
+

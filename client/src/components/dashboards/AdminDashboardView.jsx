@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
+import { getSocket } from '../../services/socket';
 import TableSkeleton from '../common/TableSkeleton';
 import EmptyState from '../common/EmptyState';
 import ErrorState from '../common/ErrorState';
@@ -47,6 +48,26 @@ export default function AdminDashboardView({ onSelectComplaint }) {
 
   useEffect(() => {
     fetchOverview();
+  }, [fetchOverview]);
+
+  // Real-time socket update listener
+  useEffect(() => {
+    const socket = getSocket();
+    const handleUpdate = () => {
+      fetchOverview();
+    };
+
+    socket.on('complaint_updated', handleUpdate);
+    socket.on('notification_received', handleUpdate);
+    socket.on('user_updated', handleUpdate);
+    socket.on('department_updated', handleUpdate);
+
+    return () => {
+      socket.off('complaint_updated', handleUpdate);
+      socket.off('notification_received', handleUpdate);
+      socket.off('user_updated', handleUpdate);
+      socket.off('department_updated', handleUpdate);
+    };
   }, [fetchOverview]);
 
   const { stats, monthlyTrend, deptComparison, categoryBreakdown, recentActivity } = data;

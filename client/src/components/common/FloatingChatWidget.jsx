@@ -47,8 +47,14 @@ export default function FloatingChatWidget({ complaint, onCommentAdded }) {
     const handleNewMessage = (data) => {
       if (data.complaintId === complaintId && data.comment) {
         setComments((prev) => {
-          // Avoid duplicates if added locally
-          if (prev.some((c) => c._id === data.comment._id)) return prev;
+          const isDuplicate = prev.some(
+            (c) =>
+              c._id === data.comment._id ||
+              (c.sender?._id === data.comment.sender?._id &&
+                c.message === data.comment.message &&
+                Math.abs(new Date(c.createdAt || Date.now()) - new Date(data.comment.createdAt || Date.now())) < 2000)
+          );
+          if (isDuplicate) return prev;
           const updated = [...prev, data.comment];
           if (onCommentAdded) onCommentAdded(updated);
           return updated;
@@ -122,17 +128,10 @@ export default function FloatingChatWidget({ complaint, onCommentAdded }) {
       const socket = getSocket();
       socket.emit('typing_stop', { complaintId, user });
 
-      // Emit message via Socket.IO for instant low-latency delivery
-      socket.emit('send_message', {
-        complaintId,
-        message: commentText.trim(),
-        sender: user,
-      });
-
-      // Also call HTTP API as fallback / persistence guarantee
+      // Post comment via API endpoint (persists in DB, notifies participants, and broadcasts via Socket.IO)
       const res = await api.addComplaintComment(complaintId, commentText.trim());
       if (res.status === 'success' && res.data) {
-        const updatedComments = res.data.comments || [...comments, res.data.comment];
+        const updatedComments = res.data.comments || [];
         setComments(updatedComments);
         if (onCommentAdded) {
           onCommentAdded(updatedComments);

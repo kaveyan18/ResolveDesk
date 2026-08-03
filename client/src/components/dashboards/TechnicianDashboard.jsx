@@ -194,10 +194,15 @@ export default function TechnicianDashboard() {
               {currentTab === 'dashboard' && (
                 <TechnicianDashboardView
                   onOpenComplaint={(id) => handleSelectComplaint(id)}
+                  onOpenWorkView={(id) => handleSelectComplaint(id)}
                 />
               )}
 
-              {currentTab === 'completed' && <TechnicianCompletedView />}
+              {currentTab === 'completed' && (
+                <TechnicianCompletedView
+                  onOpenWorkView={(id) => handleSelectComplaint(id)}
+                />
+              )}
 
               {currentTab === 'notifications' && (
                 <NotificationsList

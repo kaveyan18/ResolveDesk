@@ -2,6 +2,7 @@ const Department = require('../models/Department');
 const Complaint = require('../models/Complaint');
 const User = require('../models/User');
 const { COMPLAINT_STATUS } = require('../constants/enums');
+const { getIO } = require('../socket');
 
 /**
  * @desc    Get department overview statistics (status counts, technician workload, performance split)
@@ -61,10 +62,11 @@ const getDepartmentOverview = async (req, res) => {
     ]);
 
     // 2. Fetch Technicians in Department for Workload Distribution
-    const technicians = await User.find({
-      role: 'Technician',
-      isActive: true,
-    }).select('name avatar email skills');
+    const techQuery = { role: 'Technician', isApproved: true };
+    if (department) {
+      techQuery.$or = [{ department: department._id }, { department: null }];
+    }
+    const technicians = await User.find(techQuery).select('name avatar email skills department');
 
     // Aggregate workload count per technician
     const workloadPromises = technicians.map(async (tech) => {
@@ -80,16 +82,7 @@ const getDepartmentOverview = async (req, res) => {
       };
     });
 
-    let workload = await Promise.all(workloadPromises);
-    if (workload.length === 0) {
-      workload = [
-        { l: 'Manoj', v: 8 },
-        { l: 'Divya', v: 5 },
-        { l: 'Suresh', v: 3 },
-        { l: 'Karthik', v: 6 },
-        { l: 'Anitha', v: 2 },
-      ];
-    }
+    const workload = await Promise.all(workloadPromises);
 
     // 3. Performance Split (On-time, Delayed, Escalated)
     const [totalResolved, totalClosed] = await Promise.all([
@@ -98,9 +91,9 @@ const getDepartmentOverview = async (req, res) => {
     ]);
 
     const resolvedCount = totalResolved + totalClosed;
-    const onTimeVal = Math.max(Math.round(resolvedCount * 0.7), 68);
-    const delayedVal = Math.max(Math.round(resolvedCount * 0.2), 22);
-    const escalatedVal = Math.max(escalated, 10);
+    const onTimeVal = Math.round(resolvedCount * 0.7);
+    const delayedVal = Math.round(resolvedCount * 0.2);
+    const escalatedVal = escalated;
 
     const performance = [
       { l: 'On-time', v: onTimeVal, c: '#1F9D6C' },
@@ -119,12 +112,12 @@ const getDepartmentOverview = async (req, res) => {
     return res.json({
       status: 'success',
       data: {
-        department: department || { name: 'Electrical Department', code: 'ELEC' },
+        department: department || { name: 'General Department', code: 'GEN' },
         stats: {
           pending,
           assigned,
           inProgress,
-          escalated: escalated || 2,
+          escalated,
           resolvedToday,
         },
         workload,
@@ -147,7 +140,18 @@ const getDepartmentOverview = async (req, res) => {
  */
 const getDepartmentTechnicians = async (req, res) => {
   try {
-    const technicians = await User.find({ role: 'Technician', isActive: true })
+    let departmentId = req.user.department;
+    if (!departmentId && req.user.role === 'DepartmentHead') {
+      const dept = await Department.findOne({ head: req.user._id });
+      if (dept) departmentId = dept._id;
+    }
+
+    const techFilter = { role: 'Technician', isApproved: true };
+    if (departmentId) {
+      techFilter.$or = [{ department: departmentId }, { department: null }];
+    }
+
+    const technicians = await User.find(techFilter)
       .select('name email role phone avatar skills department')
       .populate('department', 'name code');
 
@@ -212,10 +216,14 @@ const getDepartmentStaff = async (req, res) => {
       department = await Department.findById(id);
     }
 
-    const technicians = await User.find({
-      role: 'Technician',
-      isActive: true,
-    }).select('name email role phone avatar skills department');
+    const techFilter = { role: 'Technician', isApproved: true };
+    if (department) {
+      techFilter.$or = [{ department: department._id }, { department: null }];
+    }
+
+    const technicians = await User.find(techFilter).select(
+      'name email role phone avatar skills department'
+    );
 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -238,7 +246,7 @@ const getDepartmentStaff = async (req, res) => {
       ]);
 
       // Calculate Average Resolution Time
-      let avgHoursNum = 4.5;
+      let avgHoursNum = 0;
       if (completedComplaints.length > 0) {
         const totalHours = completedComplaints.reduce((sum, c) => {
           const diffMs = new Date(c.resolvedAt || c.updatedAt) - new Date(c.createdAt);
@@ -249,7 +257,7 @@ const getDepartmentStaff = async (req, res) => {
 
       // Calculate Average Rating
       const ratedComplaints = completedComplaints.filter((c) => c.rating && c.rating > 0);
-      let avgRating = 4.8;
+      let avgRating = 0;
       if (ratedComplaints.length > 0) {
         const totalRating = ratedComplaints.reduce((sum, c) => sum + c.rating, 0);
         avgRating = Number((totalRating / ratedComplaints.length).toFixed(1));
@@ -263,49 +271,18 @@ const getDepartmentStaff = async (req, res) => {
         avatar: tech.avatar,
         skills: tech.skills || [],
         activeTasks,
-        resolvedMonth: resolvedMonth || completedComplaints.length,
+        resolvedMonth,
         avgTime: `${avgHoursNum} hrs`,
         rating: avgRating,
       };
     });
 
-    let staff = await Promise.all(staffPromises);
-    if (staff.length === 0) {
-      staff = [
-        {
-          _id: 'tech-1',
-          name: 'Manoj S.',
-          email: 'manoj@kct.ac.in',
-          activeTasks: 8,
-          resolvedMonth: 24,
-          avgTime: '4.8 hrs',
-          rating: 4.5,
-        },
-        {
-          _id: 'tech-2',
-          name: 'Divya P.',
-          email: 'divya@kct.ac.in',
-          activeTasks: 3,
-          resolvedMonth: 31,
-          avgTime: '3.2 hrs',
-          rating: 5.0,
-        },
-        {
-          _id: 'tech-3',
-          name: 'Suresh K.',
-          email: 'suresh@kct.ac.in',
-          activeTasks: 2,
-          resolvedMonth: 19,
-          avgTime: '5.5 hrs',
-          rating: 4.2,
-        },
-      ];
-    }
+    const staff = await Promise.all(staffPromises);
 
     return res.json({
       status: 'success',
       data: {
-        department: department || { name: 'Electrical Department', code: 'ELEC' },
+        department: department || { name: 'Department', code: 'DEPT' },
         totalStaff: staff.length,
         staff,
       },
@@ -332,13 +309,13 @@ const getDepartments = async (req, res) => {
     const departmentsWithStats = await Promise.all(
       rawDepartments.map(async (dept) => {
         const [staffCount, totalComplaints] = await Promise.all([
-          User.countDocuments({ department: dept._id, isActive: true }),
+          User.countDocuments({ department: dept._id, isApproved: true }),
           Complaint.countDocuments({ department: dept._id }),
         ]);
 
         const deptObj = dept.toObject();
-        deptObj.staffCount = staffCount || 5;
-        deptObj.totalComplaints = totalComplaints || 412;
+        deptObj.staffCount = staffCount;
+        deptObj.totalComplaints = totalComplaints;
         return deptObj;
       })
     );
@@ -399,6 +376,11 @@ const createDepartment = async (req, res) => {
 
     await department.populate('head', 'name email role');
 
+    try {
+      const io = getIO();
+      if (io) io.emit('department_updated', { departmentId: department._id });
+    } catch (e) {}
+
     return res.status(201).json({
       status: 'success',
       data: {
@@ -443,6 +425,11 @@ const updateDepartment = async (req, res) => {
 
     await department.save();
     await department.populate('head', 'name email role');
+
+    try {
+      const io = getIO();
+      if (io) io.emit('department_updated', { departmentId: department._id });
+    } catch (e) {}
 
     return res.json({
       status: 'success',

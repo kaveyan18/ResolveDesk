@@ -126,3 +126,11 @@ npm run lint
 # Format code with Prettier
 npm run format
 ```
+
+---
+
+## 🚀 Hosting & Production Deployment
+
+For complete hosting instructions on **Render + Vercel + MongoDB Atlas** or single **Linux VPS / Nginx**, see the dedicated deployment guide:
+👉 [DEPLOYMENT.md](file:///d:/smart%20campus%20complaint/DEPLOYMENT.md)
+

@@ -77,11 +77,11 @@ const getDepartmentReport = async (req, res) => {
         Complaint.countDocuments({ ...filterQuery, status: COMPLAINT_STATUS.REJECTED }),
       ]);
 
-    const totalStatusCount = resolvedCount + inProgressCount + pendingCount + assignedCount + rejectedCount || 1;
+    const totalStatusCount = resolvedCount + inProgressCount + pendingCount + assignedCount + rejectedCount;
     const byStatus = [
-      { l: 'Resolved', v: Math.max(resolvedCount, 55), c: '#1F9D6C' },
-      { l: 'In Progress', v: Math.max(inProgressCount, 25), c: '#7C5CD6' },
-      { l: 'Pending', v: Math.max(pendingCount + assignedCount, 20), c: '#DE8F1F' },
+      { l: 'Resolved', v: resolvedCount, c: '#1F9D6C' },
+      { l: 'In Progress', v: inProgressCount, c: '#7C5CD6' },
+      { l: 'Pending', v: pendingCount + assignedCount, c: '#DE8F1F' },
     ];
 
     // 2. By Category Donut Split
@@ -92,19 +92,11 @@ const getDepartmentReport = async (req, res) => {
     ]);
 
     const colors = ['#2A4FD1', '#7C5CD6', '#8992A6', '#1F9D6C', '#DE8F1F'];
-    let byCategory = categoryAgg.map((item, idx) => ({
+    const byCategory = categoryAgg.map((item, idx) => ({
       l: item._id || 'General',
       v: item.count,
       c: colors[idx % colors.length],
     }));
-
-    if (byCategory.length === 0) {
-      byCategory = [
-        { l: 'Electrical', v: 40, c: '#2A4FD1' },
-        { l: 'Wiring', v: 35, c: '#7C5CD6' },
-        { l: 'Other', v: 25, c: '#8992A6' },
-      ];
-    }
 
     // 3. Weekly Volume Bar Chart
     const now = new Date();
@@ -120,10 +112,9 @@ const getDepartmentReport = async (req, res) => {
         createdAt: { $gte: startOfWeek, $lt: endOfWeek },
       });
 
-      const fallbackVals = [12, 18, 9, 15];
       weeklyVolume.push({
         l: `W${4 - w}`,
-        v: weekCount || fallbackVals[3 - w],
+        v: weekCount,
       });
     }
 

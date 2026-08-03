@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { getSocket } from '../services/socket';
+import { showPushNotification } from '../services/pushNotification';
 
 const AuthContext = createContext(null);
 
@@ -36,6 +38,31 @@ export function AuthProvider({ children }) {
 
     loadUser();
   }, [token]);
+
+  // Real-time Push Notification socket listener
+  useEffect(() => {
+    if (!user || !user._id) return;
+
+    const socket = getSocket();
+
+    const handleNotification = (data) => {
+      if (
+        data &&
+        data.recipientId === user._id.toString() &&
+        user.pushNotificationsEnabled !== false
+      ) {
+        showPushNotification(data.title || 'ResolveDesk Update', {
+          body: data.message || 'You have a new complaint update.',
+        });
+      }
+    };
+
+    socket.on('notification_received', handleNotification);
+
+    return () => {
+      socket.off('notification_received', handleNotification);
+    };
+  }, [user]);
 
   const login = async (email, password) => {
     setError(null);
@@ -84,6 +111,7 @@ export function AuthProvider({ children }) {
 
   const value = {
     user,
+    setUser,
     token,
     loading,
     error,

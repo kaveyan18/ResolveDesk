@@ -6,6 +6,7 @@ import AdminUsersView from '../admin/AdminUsersView';
 import AdminDepartmentsView from '../admin/AdminDepartmentsView';
 import HeadReportsView from '../head/HeadReportsView';
 import HeadComplaintsList from '../head/HeadComplaintsList';
+import HeadAssignView from '../head/HeadAssignView';
 import ComplaintDetail from '../complaints/ComplaintDetail';
 import NotificationsList from '../notifications/NotificationsList';
 import NotificationDropdown from '../notifications/NotificationDropdown';
@@ -27,6 +28,7 @@ export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [selectedComplaintId, setSelectedComplaintId] = useState(null);
+  const [assigningComplaint, setAssigningComplaint] = useState(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
 
@@ -58,12 +60,20 @@ export default function AdminDashboard() {
 
   const handleTabChange = (tabId) => {
     setSelectedComplaintId(null);
+    setAssigningComplaint(null);
     setCurrentTab(tabId);
     setShowNotifDropdown(false);
   };
 
   const handleSelectComplaint = (id) => {
     setSelectedComplaintId(id);
+    setAssigningComplaint(null);
+    setShowNotifDropdown(false);
+  };
+
+  const handleStartAssign = (cmp) => {
+    setAssigningComplaint(cmp);
+    setSelectedComplaintId(null);
     setShowNotifDropdown(false);
   };
 
@@ -198,6 +208,17 @@ export default function AdminDashboard() {
               complaintId={selectedComplaintId}
               onBack={() => setSelectedComplaintId(null)}
             />
+          ) : assigningComplaint ? (
+            <HeadAssignView
+              complaint={assigningComplaint}
+              onAssigned={() => {
+                setAssigningComplaint(null);
+                setCurrentTab('complaints');
+              }}
+              onCancel={() => {
+                setAssigningComplaint(null);
+              }}
+            />
           ) : (
             <>
               {currentTab === 'dashboard' && (
@@ -208,6 +229,7 @@ export default function AdminDashboard() {
 
               {currentTab === 'complaints' && (
                 <HeadComplaintsList
+                  onAssign={(cmp) => handleStartAssign(cmp)}
                   onSelectComplaint={(id) => handleSelectComplaint(id)}
                 />
               )}

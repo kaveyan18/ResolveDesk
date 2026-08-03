@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
+import { getSocket } from '../../services/socket';
 import TableSkeleton from '../common/TableSkeleton';
 import EmptyState from '../common/EmptyState';
 import ErrorState from '../common/ErrorState';
@@ -12,7 +13,11 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
-export default function TechnicianDashboardView({ onOpenWorkView }) {
+export default function TechnicianDashboardView({ onOpenWorkView, onOpenComplaint }) {
+  const handleOpenClick = (id) => {
+    const fn = onOpenWorkView || onOpenComplaint;
+    if (fn) fn(id);
+  };
   const { user } = useAuth();
   const [data, setData] = useState({
     stats: {
@@ -45,6 +50,22 @@ export default function TechnicianDashboardView({ onOpenWorkView }) {
 
   useEffect(() => {
     fetchAssigned();
+  }, [fetchAssigned]);
+
+  // Real-time socket update listener
+  useEffect(() => {
+    const socket = getSocket();
+    const handleUpdate = () => {
+      fetchAssigned();
+    };
+
+    socket.on('complaint_updated', handleUpdate);
+    socket.on('notification_received', handleUpdate);
+
+    return () => {
+      socket.off('complaint_updated', handleUpdate);
+      socket.off('notification_received', handleUpdate);
+    };
   }, [fetchAssigned]);
 
   const { stats, complaints } = data;
@@ -214,7 +235,7 @@ export default function TechnicianDashboardView({ onOpenWorkView }) {
                     <td className="flex justify-between items-center py-2 md:table-cell md:py-3.5 md:px-3 md:text-right">
                       <span className="md:hidden text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Action</span>
                       <button
-                        onClick={() => onOpenWorkView(c.ticketId || c._id)}
+                        onClick={() => handleOpenClick(c.ticketId || c._id)}
                         className="px-3 py-1 bg-white border border-surface-border text-ink rounded-lg text-xs font-semibold hover:border-brand hover:text-brand transition shadow-subtle inline-flex items-center gap-1 cursor-pointer"
                       >
                         Open <ArrowRight className="w-3 h-3" />

@@ -2,7 +2,8 @@ const User = require('../models/User');
 const Department = require('../models/Department');
 const Complaint = require('../models/Complaint');
 const Notification = require('../models/Notification');
-const { COMPLAINT_STATUS } = require('../constants/enums');
+const { COMPLAINT_STATUS, ROLE_VALUES, ROLES, NOTIFICATION_TYPE } = require('../constants/enums');
+const { getIO } = require('../socket');
 
 /**
  * @desc    Get system-wide admin dashboard overview stats and charts
@@ -14,7 +15,7 @@ const getAdminOverview = async (req, res) => {
     // 1. Calculate 4 Summary Card Metrics
     const [totalUsers, totalDepartments, openComplaints, closedComplaints] =
       await Promise.all([
-        User.countDocuments({ $or: [{ isApproved: true }, { isActive: true }] }),
+        User.countDocuments({ isApproved: true }),
         Department.countDocuments({ isActive: true }),
         Complaint.countDocuments({
           status: {
@@ -69,7 +70,7 @@ const getAdminOverview = async (req, res) => {
 
       monthlyTrend.push({
         l: monthNames[d.getMonth()],
-        v: count || fallbackMonthlyVals[5 - i],
+        v: count,
       });
     }
 
@@ -84,21 +85,12 @@ const getAdminOverview = async (req, res) => {
       };
     });
 
-    let deptComparison = await Promise.all(deptPromises);
-    if (deptComparison.length === 0 || deptComparison.every((d) => d.v === 0)) {
-      deptComparison = [
-        { l: 'Elec', fullName: 'Electrical', v: 40, c: '#2A4FD1' },
-        { l: 'Plumb', fullName: 'Plumbing', v: 25, c: '#7C5CD6' },
-        { l: 'IT', fullName: 'IT Services', v: 55, c: '#1F9D6C' },
-        { l: 'Fac.', fullName: 'Facilities', v: 30, c: '#DE8F1F' },
-      ];
-    } else {
-      const deptColors = ['#2A4FD1', '#7C5CD6', '#1F9D6C', '#DE8F1F', '#DB4C4C', '#8992A6'];
-      deptComparison = deptComparison.map((d, idx) => ({
-        ...d,
-        c: deptColors[idx % deptColors.length],
-      }));
-    }
+    const rawDeptComparison = await Promise.all(deptPromises);
+    const deptColors = ['#2A4FD1', '#7C5CD6', '#1F9D6C', '#DE8F1F', '#DB4C4C', '#8992A6'];
+    const deptComparison = rawDeptComparison.map((d, idx) => ({
+      ...d,
+      c: deptColors[idx % deptColors.length],
+    }));
 
     // 4. Complaint Categories Breakdown Donut Data
     const categoryAgg = await Complaint.aggregate([
@@ -107,20 +99,11 @@ const getAdminOverview = async (req, res) => {
     ]);
 
     const catColors = ['#2A4FD1', '#1F9D6C', '#7C5CD6', '#8992A6', '#DE8F1F'];
-    let categoryBreakdown = categoryAgg.map((item, idx) => ({
+    const categoryBreakdown = categoryAgg.map((item, idx) => ({
       l: item._id || 'Other',
       v: item.count,
       c: catColors[idx % catColors.length],
     }));
-
-    if (categoryBreakdown.length === 0) {
-      categoryBreakdown = [
-        { l: 'Electrical', v: 32, c: '#2A4FD1' },
-        { l: 'IT', v: 28, c: '#1F9D6C' },
-        { l: 'Plumbing', v: 22, c: '#7C5CD6' },
-        { l: 'Other', v: 18, c: '#8992A6' },
-      ];
-    }
 
     // 5. Recent Activity Feed (Top 5 Notifications System-Wide)
     const recentActivity = await Notification.find({})
@@ -251,6 +234,11 @@ const createUser = async (req, res) => {
     delete userObj.password;
     userObj.isActive = true;
 
+    try {
+      const io = getIO();
+      if (io) io.emit('user_updated', { userId: newUser._id });
+    } catch (e) {}
+
     return res.status(201).json({
       status: 'success',
       data: {
@@ -301,6 +289,11 @@ const updateUser = async (req, res) => {
     delete userObj.password;
     userObj.isActive = user.isApproved !== undefined ? user.isApproved : user.isActive;
 
+    try {
+      const io = getIO();
+      if (io) io.emit('user_updated', { userId: user._id });
+    } catch (e) {}
+
     return res.json({
       status: 'success',
       data: {
@@ -341,6 +334,11 @@ const approveUser = async (req, res) => {
     delete userObj.password;
     userObj.isActive = true;
     userObj.isApproved = true;
+
+    try {
+      const io = getIO();
+      if (io) io.emit('user_updated', { userId: user._id });
+    } catch (e) {}
 
     return res.json({
       status: 'success',
@@ -429,6 +427,146 @@ const deleteUser = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Bulk import users via CSV data
+ * @route   POST /api/admin/users/bulk
+ * @access  Private (Admin)
+ */
+const bulkImportUsers = async (req, res) => {
+  try {
+    const { users } = req.body;
+
+    if (!Array.isArray(users) || users.length === 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'No user records provided for bulk import',
+      });
+    }
+
+    // Pre-fetch all departments to map by name or code
+    const depts = await Department.find({});
+    const deptMap = new Map();
+    depts.forEach((d) => {
+      if (d.name) deptMap.set(d.name.toLowerCase().trim(), d._id);
+      if (d.code) deptMap.set(d.code.toLowerCase().trim(), d._id);
+    });
+
+    // Normalized roles helper map (case-insensitive & alias friendly)
+    const roleMap = {
+      student: ROLES.STUDENT,
+      technician: ROLES.TECHNICIAN,
+      tech: ROLES.TECHNICIAN,
+      departmenthead: ROLES.DEPARTMENT_HEAD,
+      depthead: ROLES.DEPARTMENT_HEAD,
+      head: ROLES.DEPARTMENT_HEAD,
+      admin: ROLES.ADMIN,
+    };
+
+    const createdUsers = [];
+    const errors = [];
+
+    for (let index = 0; index < users.length; index++) {
+      const row = users[index];
+      const rowNum = index + 1;
+
+      try {
+        const name = row.name ? String(row.name).trim() : '';
+        const rawEmail = row.email ? String(row.email).trim() : '';
+        const rawRole = row.role ? String(row.role).trim() : 'Student';
+        const password = row.password ? String(row.password).trim() : 'ResolveDesk123!';
+        const phone = row.phone ? String(row.phone).trim() : '';
+        const deptStr = row.department ? String(row.department).trim() : '';
+        const skillsRaw = row.skills;
+
+        if (!name) {
+          errors.push({ row: rowNum, email: rawEmail, error: 'Name is required' });
+          continue;
+        }
+
+        if (!rawEmail) {
+          errors.push({ row: rowNum, email: '', error: 'Email is required' });
+          continue;
+        }
+
+        const email = rawEmail.toLowerCase();
+
+        // Match role
+        const normalizedRoleKey = rawRole.toLowerCase().replace(/[\s_-]/g, '');
+        const role = roleMap[normalizedRoleKey] || (ROLE_VALUES.includes(rawRole) ? rawRole : null);
+
+        if (!role) {
+          errors.push({
+            row: rowNum,
+            email,
+            error: `Invalid role "${rawRole}". Valid roles are: ${ROLE_VALUES.join(', ')}`,
+          });
+          continue;
+        }
+
+        // Check if user email exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+          errors.push({ row: rowNum, email, error: 'User with this email already exists' });
+          continue;
+        }
+
+        // Department mapping
+        let departmentId = null;
+        if (deptStr) {
+          departmentId = deptMap.get(deptStr.toLowerCase()) || null;
+        }
+
+        // Skills parsing
+        let skillsArray = [];
+        if (Array.isArray(skillsRaw)) {
+          skillsArray = skillsRaw.map((s) => String(s).trim()).filter(Boolean);
+        } else if (typeof skillsRaw === 'string' && skillsRaw.trim()) {
+          skillsArray = skillsRaw.split(/[,|]/).map((s) => s.trim()).filter(Boolean);
+        }
+
+        const newUser = await User.create({
+          name,
+          email,
+          password,
+          role,
+          department: departmentId,
+          phone,
+          skills: skillsArray,
+          isApproved: true,
+          isActive: true,
+        });
+
+        await newUser.populate('department', 'name code');
+        const userObj = newUser.toObject();
+        delete userObj.password;
+        createdUsers.push(userObj);
+      } catch (rowErr) {
+        errors.push({
+          row: rowNum,
+          email: row.email || '',
+          error: rowErr.message || 'Error processing record',
+        });
+      }
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        total: users.length,
+        createdCount: createdUsers.length,
+        failedCount: errors.length,
+        errors,
+        users: createdUsers,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: 'error',
+      message: error.message || 'Server error during bulk user import',
+    });
+  }
+};
+
 module.exports = {
   getAdminOverview,
   getUsers,
@@ -437,4 +575,5 @@ module.exports = {
   approveUser,
   toggleUserActive,
   deleteUser,
+  bulkImportUsers,
 };

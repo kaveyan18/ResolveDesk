@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
+import { getSocket } from '../../services/socket';
 import {
   List,
   Clock,
@@ -32,24 +33,40 @@ export default function StudentDashboardView({ onNavigate }) {
     recentComplaints: [],
   });
 
-  useEffect(() => {
-    async function fetchDashboard() {
-      try {
-        setLoading(true);
-        const res = await api.getMyComplaints();
-        if (res.status === 'success' && res.data) {
-          setDashboardData(res.data);
-        }
-      } catch (err) {
-        console.error('Failed to load student dashboard:', err);
-        setError(err.message || 'Failed to load dashboard statistics.');
-      } finally {
-        setLoading(false);
+  const fetchDashboard = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await api.getMyComplaints();
+      if (res.status === 'success' && res.data) {
+        setDashboardData(res.data);
       }
+    } catch (err) {
+      console.error('Failed to load student dashboard:', err);
+      setError(err.message || 'Failed to load dashboard statistics.');
+    } finally {
+      setLoading(false);
     }
-
-    fetchDashboard();
   }, []);
+
+  useEffect(() => {
+    fetchDashboard();
+  }, [fetchDashboard]);
+
+  // Real-time socket updates listener
+  useEffect(() => {
+    const socket = getSocket();
+    const handleUpdate = () => {
+      fetchDashboard();
+    };
+
+    socket.on('complaint_updated', handleUpdate);
+    socket.on('notification_received', handleUpdate);
+
+    return () => {
+      socket.off('complaint_updated', handleUpdate);
+      socket.off('notification_received', handleUpdate);
+    };
+  }, [fetchDashboard]);
 
   const { stats, monthlyCounts, recentComplaints } = dashboardData;
 

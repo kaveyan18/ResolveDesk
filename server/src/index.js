@@ -28,6 +28,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const User = require('./models/User');
+const Department = require('./models/Department');
+const Complaint = require('./models/Complaint');
+
+const { seedDepartmentsAndStaff } = require('./utils/seedData');
+
 // Database Connection
 const connectDB = async () => {
   try {
@@ -35,6 +41,21 @@ const connectDB = async () => {
       process.env.MONGO_URI || 'mongodb://localhost:27017/resolvedesk';
     await mongoose.connect(mongoUri);
     console.log('[ResolveDesk Database] Connected to MongoDB');
+
+    // Auto-sync indexes to drop any legacy/stale database indexes (e.g. complaint_unique_id_1)
+    try {
+      await Promise.all([
+        User.syncIndexes(),
+        Department.syncIndexes(),
+        Complaint.syncIndexes(),
+      ]);
+      console.log('[ResolveDesk Database] Database collection indexes synchronized successfully');
+    } catch (indexErr) {
+      console.warn('[ResolveDesk Database] Notice on index sync:', indexErr.message);
+    }
+
+    // Auto-seed department structure, heads, and staff members
+    await seedDepartmentsAndStaff();
   } catch (error) {
     console.error('[ResolveDesk Database] Connection error:', error.message);
   }
