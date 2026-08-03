@@ -23,6 +23,23 @@ export default function LoginScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Helper to sanitize raw technical errors into user-friendly copy
+  const formatUserFriendlyError = (err, fallback) => {
+    const rawMsg = err?.message || '';
+    if (
+      rawMsg.toLowerCase().includes('route') ||
+      rawMsg.toLowerCase().includes('not found') ||
+      rawMsg.toLowerCase().includes('failed to fetch') ||
+      rawMsg.toLowerCase().includes('networkerror')
+    ) {
+      return 'Unable to reach ResolveDesk server. Please check your connection or try again shortly.';
+    }
+    if (rawMsg.toLowerCase().includes('internal server error')) {
+      return 'Service temporarily unavailable. Please try again in a few minutes.';
+    }
+    return rawMsg || fallback;
+  };
+
   // 1. Handle Login Submit
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
@@ -34,7 +51,7 @@ export default function LoginScreen() {
       await login(email.trim(), password);
     } catch (err) {
       console.error('Login error:', err);
-      setErrorMessage(err.message || 'Server error occurred during login.');
+      setErrorMessage(formatUserFriendlyError(err, 'Invalid credentials. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -58,7 +75,7 @@ export default function LoginScreen() {
       }
     } catch (err) {
       console.error('Forgot password error:', err);
-      setErrorMessage(err.message || 'Failed to request password reset OTP.');
+      setErrorMessage(formatUserFriendlyError(err, 'Failed to request password reset OTP.'));
     } finally {
       setLoading(false);
     }
@@ -83,7 +100,7 @@ export default function LoginScreen() {
       }
     } catch (err) {
       console.error('Reset password error:', err);
-      setErrorMessage(err.message || 'Failed to reset password.');
+      setErrorMessage(formatUserFriendlyError(err, 'Failed to reset password. Please check your OTP.'));
     } finally {
       setLoading(false);
     }
